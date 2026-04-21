@@ -1,18 +1,25 @@
-import { setupWorker } from 'msw/browser';
-import { leadsHandlers } from './handlers/leads.handlers';
-import { pipelineHandlers } from './handlers/pipeline.handlers';
-import { personalProfileHandlers } from './handlers/personal-profile.handlers';
-import { enrollmentHandlers } from './handlers/enrollment.handlers';
-import { codealHandlers } from './handlers/codeal.handlers';
-import { kpiHandlers } from './handlers/kpi.handlers';
-import { lookupHandlers } from './handlers/lookup.handlers';
+// src/mocks/browser.ts
+import { setupWorker } from 'msw/browser'
+import { authHandlers }            from './handlers/auth'
+import { leadsHandlers }           from './handlers/leads'
+import { pipelineActionHandlers }  from './handlers/pipeline-actions'
+import { leadNotesHandlers }       from './handlers/lead-notes'
+import { enrollmentHandlers }      from './handlers/enrollments'
+import { transferHandlers }        from './handlers/transfers'
+import { coDealHandlers }          from './handlers/co-deals'
+import { personalProfileHandlers } from './handlers/personal-profiles'
+import { kpiHandlers }             from './handlers/kpi'
+import { dashboardHandlers }       from './handlers/dashboard'
 
 export const worker = setupWorker(
+  ...authHandlers,
   ...leadsHandlers,
-  ...pipelineHandlers,
-  ...personalProfileHandlers,
+  ...pipelineActionHandlers,
+  ...leadNotesHandlers,
   ...enrollmentHandlers,
-  ...codealHandlers,
+  ...transferHandlers,
+  ...coDealHandlers,
+  ...personalProfileHandlers,
   ...kpiHandlers,
-  ...lookupHandlers,
-);
+  ...dashboardHandlers,
+)
