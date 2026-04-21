@@ -464,3 +464,25 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:#F7F6F3;color:#1A1A1A;-w
 ::-webkit-scrollbar-track{background:var(--stone)}
 ::-webkit-scrollbar-thumb{background:var(--stone2);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:#C4BDB5}
+
+/* ── LOGIN PAGE ── */
+.login-page{min-height:100vh;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Be Vietnam Pro',sans-serif}
+.login-wrap{width:100%;max-width:420px}
+.login-brand{text-align:center;margin-bottom:32px}
+.login-logo{font-family:var(--heading);font-size:36px;font-weight:900;color:var(--nedu);letter-spacing:-.02em;display:flex;align-items:center;justify-content:center;gap:3px;margin-bottom:8px}
+.login-logo span{color:var(--t3);font-family:'Be Vietnam Pro',sans-serif;font-weight:400;font-size:18px;margin-top:10px}
+.login-tagline{font-size:13px;color:var(--t3)}
+.login-card{background:var(--wh);border-radius:20px;padding:32px;box-shadow:var(--sh3);border:1px solid var(--stone2)}
+.login-card h1{font-size:22px;font-weight:800;letter-spacing:-.03em;margin-bottom:6px;text-align:center}
+.login-card p{font-size:12px;color:var(--t3);text-align:center;margin-bottom:28px}
+.google-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;background:var(--wh);border:1.5px solid var(--stone2);border-radius:12px;padding:12px 16px;font-size:14px;font-weight:600;color:var(--t1);cursor:pointer;font-family:'Be Vietnam Pro',sans-serif;transition:all .15s}
+.google-btn:hover{border-color:var(--nedu-b);background:var(--nedu-light);box-shadow:var(--sh2)}
+.google-btn:active{transform:scale(.98)}
+.google-btn:disabled{opacity:.6;cursor:not-allowed}
+.login-divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--t4);font-size:11px;font-family:var(--mono)}
+.login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--stone2)}
+.dev-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--stone);border:1.5px solid var(--stone2);border-radius:12px;padding:10px 16px;font-size:12px;font-weight:600;color:var(--t2);cursor:pointer;font-family:'Be Vietnam Pro',sans-serif;transition:all .15s}
+.dev-btn:hover{background:var(--stone2);color:var(--t1)}
+.login-footer{text-align:center;margin-top:24px;font-size:11px;color:var(--t4)}
+.login-notice{background:var(--nedu-light);border:1.5px solid var(--nedu-b);border-radius:10px;padding:10px 14px;margin-top:16px;font-size:11px;color:var(--nedu);text-align:center;line-height:1.5}
+.login-spinner{width:20px;height:20px;border:2px solid var(--stone2);border-top-color:var(--nedu);border-radius:50%;animation:spin 1s linear infinite;flex-shrink:0}
