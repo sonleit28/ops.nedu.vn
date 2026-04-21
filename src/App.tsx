@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useLeads, useAdvanceStage, useCreateEnrollment, useCreateNote, useUpdateNote, useDeleteNote, useLeadActions, useLeadNotes, useUpdateLead, useTransferLead, useCreateCoDeal } from '@modules/ops/hooks/useLeads';
-import type { Lead as BackendLead, PipelineStage, ProgramSlug, PaymentMethod, PipelineAction } from '@modules/ops/types';
+import { useLeads, useAdvanceStage, useCreateEnrollment, useCreateNote, useUpdateNote, useDeleteNote, useLeadActions, useLeadNotes, useUpdateLead, useTransferLead, useCreateCoDeal, usePersonalProfile, useGeneratePersonalProfile } from '@modules/ops/hooks/useLeads';
+import { useAuthStore } from '@modules/auth/stores/useAuthStore';
+import type { Lead as BackendLead, PipelineStage, ProgramSlug, PaymentMethod, PipelineAction, PersonalProfile as BackendPersonalProfile } from '@modules/ops/types';
 
 const COURSE_TO_PROGRAM: Record<string, ProgramSlug> = {
   lcm: 'la-chinh-minh', adult: 'adult-learning', exec: 'executive',
@@ -331,6 +332,29 @@ export default function App() {
   const enrollM = useCreateEnrollment();
   const transferM = useTransferLead();
   const coDealM = useCreateCoDeal();
+  const genProfileM = useGeneratePersonalProfile();
+
+  // Auth user + logout menu
+  const { user, logout } = useAuthStore();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const onClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [showUserMenu]);
+  async function handleLogout() {
+    setShowUserMenu(false);
+    await logout();
+    window.location.href = '/login';
+  }
+  const userInitial = (user?.full_name?.trim()?.[0] ?? user?.email?.[0] ?? '?').toUpperCase();
+  const userFirstName = user?.full_name?.trim().split(/\s+/).pop() ?? 'bạn';
   const createNoteM = useCreateNote();
   const updateNoteM = useUpdateNote();
   const deleteNoteM = useDeleteNote();
@@ -716,21 +740,49 @@ export default function App() {
     patchLeadField(tid, backendField, trimmed, key);
   }
   function genProfile(id: number) {
+    const uuid = UUID_BY_NUMERIC_ID[id];
     setGeneratingProfile(true);
-    setTimeout(() => {
-      setProfileCards(prev => ({
-        ...prev,
-        [id]:{gen:true,dm:'Nhâm Thủy 壬',lp:'5',nk:'Sao 5 Thổ',gua:'4',
-          q:'"Dòng sông sâu không ồn ào — sức mạnh nằm trong chiều sâu."',
-          core:'Nhâm Thủy nhật chủ — chiều sâu nội tâm lớn. Quyết định bằng cảm nhận + logic. Không bề mặt.',
-          talk:[{y:true,t:'<strong>Cho thời gian suy nghĩ.</strong> Không ép quyết định.'},{y:true,t:'<strong>Nói thật, không tô vẽ.</strong> Nhận ra ngay khi bị nói lệch.'},{y:false,t:'<strong>Tránh:</strong> Áp lực thời gian giả ("chỉ còn 2 chỗ").'}],
-          need:'Đang tìm sự bình yên nội tâm trong bối cảnh thay đổi lớn.',
-          timing:'Sao 5 Thổ 2026 — năm chuyển hóa. Quyết định có tác động dài hạn.',
-          opening:'"Em thấy anh/chị đang ở giai đoạt tìm điều gì đó sâu hơn. Điều đó rất đáng trân trọng."'}
-      }));
-      setGeneratingProfile(false);
-      showToast('✨','Personal Profile đã tạo!','Xem tab Personal Profile');
-    }, 2000);
+    if (!uuid) {
+      // Fallback local (lead không có UUID backend)
+      setTimeout(() => {
+        setProfileCards(prev => ({
+          ...prev,
+          [id]:{gen:true,dm:'Nhâm Thủy 壬',lp:'5',nk:'Sao 5 Thổ',gua:'4',
+            q:'"Dòng sông sâu không ồn ào — sức mạnh nằm trong chiều sâu."',
+            core:'Nhâm Thủy nhật chủ — chiều sâu nội tâm lớn. Quyết định bằng cảm nhận + logic.',
+            talk:[{y:true,t:'<strong>Cho thời gian suy nghĩ.</strong>'},{y:false,t:'<strong>Tránh:</strong> ép quyết định.'}],
+            need:'Đang tìm sự bình yên nội tâm.',
+            timing:'2026 — năm chuyển hóa.',
+            opening:'"Em thấy anh/chị đang tìm điều gì đó sâu hơn..."'}
+        }));
+        setGeneratingProfile(false);
+        showToast('✨','Personal Profile đã tạo!','Xem tab Personal Profile');
+      }, 800);
+      return;
+    }
+    genProfileM.mutate(
+      { leadId: uuid },
+      {
+        onSuccess: (result) => {
+          if (result) {
+            setProfileCards(prev => ({ ...prev, [id]: apiToProfileCard(result) }));
+          }
+          setGeneratingProfile(false);
+          showToast('✨','Personal Profile đã tạo!','Xem tab Personal Profile');
+        },
+        onError: (err) => {
+          setGeneratingProfile(false);
+          const e = err as { code?: string; message?: string };
+          if (e.code === 'MISSING_BIRTH_DATE') {
+            alert('Cần có ngày sinh để tạo Personal Profile. Điền ngày sinh trong tab Hồ Sơ trước.');
+          } else if (e.code === 'AI_PROFILE_CONSENT_REQUIRED') {
+            alert('Lead chưa đồng ý cho phép tạo Personal Profile — xin consent trước.');
+          } else {
+            alert('Tạo profile thất bại: ' + (e.message ?? 'Unknown error'));
+          }
+        },
+      },
+    );
   }
 
   // ─── NOTES ────────────────────────────────────────
@@ -856,6 +908,32 @@ export default function App() {
   const activeUuid = activeTodoRaw ? UUID_BY_NUMERIC_ID[activeTodoRaw.id] : undefined;
   const { data: actionsData } = useLeadActions(activeUuid ?? null);
   const { data: notesData } = useLeadNotes(activeUuid ?? null);
+  const { data: profileApi } = usePersonalProfile(activeUuid ?? null);
+
+  // Map backend PersonalProfile -> UI ProfileCard shape.
+  function apiToProfileCard(p: BackendPersonalProfile): ProfileCard {
+    const dos = (p.communication_dos ?? []).map(t => ({ y: true, t }));
+    const donts = (p.communication_donts ?? []).map(t => ({ y: false, t }));
+    return {
+      gen: true,
+      dm: p.nhut_chu ?? '—',
+      lp: p.life_path_number !== undefined ? String(p.life_path_number) : '—',
+      nk: p.nine_star ?? '—',
+      gua: '—',
+      q: p.opening_suggestion ?? '',
+      core: p.core_personality ?? '',
+      talk: [...dos, ...donts],
+      need: p.real_need ?? '',
+      timing: p.timing_2026 ?? '',
+      opening: p.opening_suggestion ?? '',
+    };
+  }
+
+  // Sync profile API vào profileCards khi data về (by numeric id).
+  useEffect(() => {
+    if (!profileApi || !activeTodoRaw) return;
+    setProfileCards(prev => ({ ...prev, [activeTodoRaw.id]: apiToProfileCard(profileApi) }));
+  }, [profileApi, activeTodoRaw]);
 
   const apiTimeline: TLItem[] = useMemo(() => {
     if (!actionsData) return [];
@@ -952,11 +1030,53 @@ export default function App() {
           ))}
         </div>
         <div style={{width:8}}/>
-        <div className="tb-greeting">Chào sáng, <em>Linh</em> ☀️</div>
+        <div className="tb-greeting">Chào sáng, <em>{userFirstName}</em> ☀️</div>
         <div style={{width:8}}/>
         <button className="btn btn-ghost btn-sm" onClick={()=>setShowKPI(true)}>📊 Team KPI</button>
         <div style={{width:6}}/>
-        <div className="tb-avatar">L</div>
+        <div ref={userMenuRef} style={{position:'relative'}}>
+          <div
+            className="tb-avatar"
+            role="button"
+            tabIndex={0}
+            title={user?.email ?? ''}
+            onClick={()=>setShowUserMenu(v=>!v)}
+            onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setShowUserMenu(v=>!v);}}}
+            style={{cursor:'pointer'}}
+          >
+            {userInitial}
+          </div>
+          {showUserMenu && (
+            <div
+              style={{
+                position:'absolute',top:'calc(100% + 6px)',right:0,minWidth:220,
+                background:'var(--wh,#fff)',border:'1px solid var(--stone2,#e5e7eb)',
+                borderRadius:10,boxShadow:'0 8px 24px rgba(0,0,0,.12)',padding:6,zIndex:1000,
+              }}
+            >
+              <div style={{padding:'8px 10px',borderBottom:'1px solid var(--stone2,#e5e7eb)',marginBottom:4}}>
+                <div style={{fontSize:12,fontWeight:700,color:'var(--t1,#111)'}}>{user?.full_name ?? 'User'}</div>
+                <div style={{fontSize:11,color:'var(--t3,#6b7280)'}}>{user?.email ?? ''}</div>
+                {user?.primary_role && (
+                  <div style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--t3,#6b7280)',marginTop:2,textTransform:'uppercase'}}>
+                    {user.primary_role}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={handleLogout}
+                style={{
+                  width:'100%',textAlign:'left',background:'transparent',border:'none',
+                  padding:'8px 10px',borderRadius:6,cursor:'pointer',fontSize:13,color:'var(--red,#DC2626)',
+                }}
+                onMouseEnter={e=>{e.currentTarget.style.background='var(--red-s,#FEE2E2)';}}
+                onMouseLeave={e=>{e.currentTarget.style.background='transparent';}}
+              >
+                🚪 Đăng xuất
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* LAYOUT */}

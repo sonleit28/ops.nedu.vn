@@ -238,10 +238,12 @@ export function useGeneratePersonalProfile() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ leadId }: { leadId: string }) => {
-      return await api.post<PersonalProfile>(`/ops/leads/${leadId}/personal-profile`)
+      const profile = await api.post<PersonalProfile>(`/ops/leads/${leadId}/personal-profile`)
+      return profile ?? null
     },
-    onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ['ops', 'leads', vars.leadId, 'personal-profile'] })
+    onSuccess: (profile, vars) => {
+      qc.setQueryData(['ops', 'leads', vars.leadId, 'personal-profile'], profile)
+      qc.invalidateQueries({ queryKey: ['ops', 'leads', vars.leadId, 'actions'] })
     },
   })
 }
