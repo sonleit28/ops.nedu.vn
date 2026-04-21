@@ -1,4 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useLeads, useAdvanceStage, useCreateEnrollment, useCreateNote, useUpdateNote, useDeleteNote, useLeadActions, useLeadNotes, useUpdateLead, useTransferLead, useCreateCoDeal } from '@modules/ops/hooks/useLeads';
+import type { Lead as BackendLead, PipelineStage, ProgramSlug, PaymentMethod, PipelineAction } from '@modules/ops/types';
+
+const COURSE_TO_PROGRAM: Record<string, ProgramSlug> = {
+  lcm: 'la-chinh-minh', adult: 'adult-learning', exec: 'executive',
+  short: 'short-course', corp: 'corporate',
+};
+const PAY_METHOD_MAP: Record<string, PaymentMethod> = {
+  transfer: 'bank_transfer', card: 'credit_card', momo: 'e_wallet', wallet: 'e_wallet',
+};
 
 // ─── CONSTANTS ───────────────────────────────────────
 const S_NAMES = ['Awareness','Interest','Consideration','Intent','Enrolled','Retention'];
@@ -68,7 +78,7 @@ const COURSES = [
 
 type Profile = {dob:string; birthTime:string; job:string; goal:string; pain:string};
 type TLItem = {icon?:string; action?:string; date?:string; who?:string; note?:string; isDivider?:boolean; label?:string};
-type NoteItem = {text:string; date:string; who:string};
+type NoteItem = {text:string; date:string; who:string; id?:string};
 type Todo = {
   id:number; priority:string; action:string; name:string;
   badge:string; badgeColor:string; desc:string; stage:number;
@@ -101,6 +111,111 @@ const PROFILE_CARDS_INIT: Record<number, ProfileCard> = {
      timing:'2026: Personal Year 9 — kết thúc chu kỳ 9 năm. Năm "dứt điểm những gì chưa hoàn thành".',
      opening:'"Anh Phúc, em thấy anh đã tìm hiểu từ 2022. Em tò mò — điều gì đã khiến anh quay lại đúng thời điểm này?"'},
 };
+
+function actionIconOf(type: PipelineAction['action_type']): string {
+  switch (type) {
+    case 'stage_advanced': return '➡️';
+    case 'stage_regressed': return '↩️';
+    case 'note_added': return '📝';
+    case 'lead_assigned': return '📥';
+    case 'lead_transferred': return '↔️';
+    case 'co_deal_created': return '🤝';
+    case 'enrolled': return '✅';
+    case 'profile_updated': return '🧩';
+    case 'ai_profile_generated': return '✨';
+    default: return '•';
+  }
+}
+function actionLabelOf(a: PipelineAction): string {
+  switch (a.action_type) {
+    case 'stage_advanced': return `Tiến stage: ${a.stage_from} → ${a.stage_to}`;
+    case 'stage_regressed': return `Lùi stage: ${a.stage_from} → ${a.stage_to}`;
+    case 'note_added': return 'Ghi chú cho người kế tiếp';
+    case 'lead_assigned': return 'Được giao';
+    case 'lead_transferred': return 'Chuyển case';
+    case 'co_deal_created': return 'Tạo co-deal';
+    case 'enrolled': return 'Enrolled';
+    case 'profile_updated': return 'Cập nhật hồ sơ';
+    case 'ai_profile_generated': return 'Tạo Personal Profile';
+    default: return a.action_type;
+  }
+}
+
+// ─── Backend Lead → Todo mapper ──────────────────────
+// Backend trả UUID string; UI gốc dùng id:number. Giữ bảng map bên ngoài để
+// các mutation sau biết UUID thật khi cần.
+const UUID_BY_NUMERIC_ID: Record<number, string> = {};
+const NUMERIC_ID_BY_UUID: Record<string, number> = {};
+let __NEXT_NUMERIC_ID = 1;
+function numericIdFor(uuid: string): number {
+  if (uuid in NUMERIC_ID_BY_UUID) return NUMERIC_ID_BY_UUID[uuid];
+  const n = __NEXT_NUMERIC_ID++;
+  NUMERIC_ID_BY_UUID[uuid] = n;
+  UUID_BY_NUMERIC_ID[n] = uuid;
+  return n;
+}
+
+const STAGE_TO_NUM: Record<PipelineStage, number> = {
+  awareness: 1, interest: 2, consideration: 3, intent: 4, enrolled: 5, retention: 6,
+};
+
+const PROGRAM_TO_COURSE: Record<string, string> = {
+  'la-chinh-minh': 'lcm', 'adult-learning': 'adult',
+  'executive': 'exec', 'short-course': 'short', 'corporate': 'corp',
+};
+
+const STAGE_COLOR: Record<number, string> = {
+  1: '#EF4444', 2: '#F59E0B', 3: '#8B5CF6', 4: '#06B6D4', 5: '#059669', 6: '#3B82F6',
+};
+
+function leadToTodo(lead: BackendLead): Todo {
+  const stage = STAGE_TO_NUM[lead.stage] ?? 1;
+  const isMarketing = lead.source === 'marketing';
+  const priority = lead.sla_breached || stage <= 2 ? 'urgent' : 'today';
+  const badge = lead.sla_breached
+    ? `⚠ Quá hạn${lead.sla_breach_hours ? ' ' + lead.sla_breach_hours + 'h' : ''}`
+    : lead.is_returning ? '🔄 Khách cũ'
+    : isMarketing ? '📢 Marketing'
+    : `Stage ${stage}`;
+  const badgeColor = lead.sla_breached ? 'red'
+    : lead.is_returning ? 'amber'
+    : isMarketing ? 'blue'
+    : stage >= 4 ? 'green' : 'purple';
+  const action = stage === 4 ? 'CHỐT DEAL' : stage >= 3 ? 'TƯ VẤN' : 'GỌI NGAY';
+  const createdAt = new Date(lead.created_at);
+  const now = new Date();
+  const days = Math.max(0, Math.floor((now.getTime() - createdAt.getTime()) / 86400000));
+
+  return {
+    id: numericIdFor(lead.id),
+    priority, action,
+    name: lead.full_name,
+    badge, badgeColor,
+    desc: lead.main_concern ?? lead.goal ?? '',
+    stage,
+    phone: lead.phone,
+    email: lead.email ?? '',
+    sourceType: isMarketing ? 'marketing' : 'inbound',
+    sourceCh: isMarketing ? 'Marketing campaign' : 'nedu.vn/test',
+    color: STAGE_COLOR[stage] ?? '#8B5CF6',
+    days,
+    testScore: lead.test_score ?? 0,
+    testDesc: lead.test_score ? `Điểm test: ${lead.test_score}/100` : 'Chưa làm test',
+    note: '',
+    profile: {
+      dob: lead.birth_date ?? '',
+      birthTime: lead.birth_time ?? '',
+      job: lead.occupation ?? '',
+      goal: lead.goal ?? '',
+      pain: lead.main_concern ?? '',
+    },
+    courses: lead.interested_programs.map(p => PROGRAM_TO_COURSE[p]).filter(Boolean),
+    timeline: [],
+    notes: [],
+    done: lead.stage === 'enrolled' || lead.stage === 'retention',
+    assignedTo: lead.assigned_to_full_name,
+  };
+}
 
 const INIT_TODOS: Todo[] = [
   {id:6,priority:'urgent',action:'GỌI NGAY',name:'Lê Minh Phúc',
@@ -209,7 +324,61 @@ function buildHintTxt(t: Todo) {
 
 // ─── MAIN APP ─────────────────────────────────────────
 export default function App() {
+  // Load leads từ API. Khi data về, bootstrap vào state todos để UI local vẫn
+  // hoạt động bình thường (mutations chưa wire — v/c sẽ làm sau).
+  const { data: leads, isLoading: leadsLoading, error: leadsError } = useLeads();
+  const advanceStageM = useAdvanceStage();
+  const enrollM = useCreateEnrollment();
+  const transferM = useTransferLead();
+  const coDealM = useCreateCoDeal();
+  const createNoteM = useCreateNote();
+  const updateNoteM = useUpdateNote();
+  const deleteNoteM = useDeleteNote();
+  const updateLeadM = useUpdateLead();
+  const mappedTodos = useMemo<Todo[]>(() => (leads ?? []).map(leadToTodo), [leads]);
+
   const [todos, setTodos] = useState<Todo[]>(INIT_TODOS);
+  const [todosBootstrapped, setTodosBootstrapped] = useState(false);
+  useEffect(() => {
+    if (mappedTodos.length === 0) return;
+    if (!todosBootstrapped) {
+      setTodos(mappedTodos);
+      setTodosBootstrapped(true);
+      return;
+    }
+    // Sync backend-owned fields khi refetch, giữ local-only fields.
+    setTodos(prev => {
+      const byId = new Map(mappedTodos.map(m => [m.id, m]));
+      const merged = prev.map(old => {
+        const fresh = byId.get(old.id);
+        if (!fresh) return old;
+        return {
+          ...old,
+          stage: fresh.stage,
+          name: fresh.name,
+          phone: fresh.phone,
+          email: fresh.email,
+          badge: fresh.badge,
+          badgeColor: fresh.badgeColor,
+          priority: fresh.priority,
+          action: fresh.action,
+          desc: fresh.desc,
+          color: fresh.color,
+          testScore: fresh.testScore,
+          testDesc: fresh.testDesc,
+          profile: fresh.profile,
+          courses: fresh.courses,
+          assignedTo: fresh.assignedTo,
+          done: fresh.done,
+        };
+      });
+      // Thêm lead mới nếu có
+      const existingIds = new Set(prev.map(p => p.id));
+      const added = mappedTodos.filter(m => !existingIds.has(m.id));
+      return [...merged, ...added];
+    });
+  }, [mappedTodos, todosBootstrapped]);
+
   const [profileCards, setProfileCards] = useState<Record<number,ProfileCard>>(PROFILE_CARDS_INIT);
   const [activeId, setActiveId] = useState<number|null>(null);
   const [guideChecks, setGuideChecks] = useState<Record<number,Record<number,boolean>>>({});
@@ -275,11 +444,24 @@ export default function App() {
     const t = getTodo(activeId!); if (!t || t.stage >= 6) return;
     if (t.stage === 4) { openEnroll(t.id); return; }
     const newStage = t.stage + 1;
+    const uuid = UUID_BY_NUMERIC_ID[t.id];
+    // Optimistic local update (giữ UX tức thời).
     updateTodo(t.id, old => ({
       ...old, stage: newStage,
       timeline: [{icon:S_ICONS[newStage-1],action:`Chuyển sang ${S_NAMES[newStage-1]}`,date:nowStr(),who:'Linh Nguyễn',note:''}, ...old.timeline]
     }));
     showToast('→', `Chuyển sang ${S_NAMES[newStage-1]}`, t.name);
+    if (!uuid) return; // lead t\u1ea1o local t\u1eeb INIT_TODOS, kh\u00f4ng c\u00f3 UUID backend
+    advanceStageM.mutate(
+      { leadId: uuid, direction: 'forward' },
+      {
+        onError: (err) => {
+          // Rollback
+          updateTodo(t.id, old => ({ ...old, stage: t.stage }));
+          alert('Tiến stage thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        },
+      },
+    );
   }
 
   function openBackPopover() {
@@ -292,12 +474,23 @@ export default function App() {
     let reason = backReasonIdx !== null ? BACK_REASONS[backReasonIdx].label : 'Không rõ lý do';
     if (backReasonIdx === 5 && backOther.trim()) reason = backOther.trim();
     const newStage = t.stage - 1;
+    const uuid = UUID_BY_NUMERIC_ID[t.id];
     updateTodo(t.id, old => ({
       ...old, stage: newStage,
       timeline: [{icon:'↩️',action:`Lùi về ${S_NAMES[newStage-1]}`,date:nowStr(),who:'Linh Nguyễn',note:`Lý do: ${reason}`}, ...old.timeline]
     }));
     setShowBack(false);
     showToast('↩','Đã lùi stage', reason);
+    if (!uuid) return;
+    advanceStageM.mutate(
+      { leadId: uuid, direction: 'back', regression_reason: reason },
+      {
+        onError: (err) => {
+          updateTodo(t.id, old => ({ ...old, stage: t.stage }));
+          alert('Lùi stage thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        },
+      },
+    );
   }
 
   // ─── CALL SCREEN ───────────────────────────────────
@@ -322,50 +515,126 @@ export default function App() {
   }
   function confirmEnroll() {
     const t = getTodo(enrollId!); if (!t) return;
-    setShowEnroll(false);
     const courseMap: Record<string,string> = {lcm:'🌱 Là Chính Mình',adult:'📚 Adult Learning Core',exec:'🎯 Executive Track',short:'⚡ Short Course',corp:'🏢 Corporate'};
     const courseName = courseMap[payCourse]?.split('·')[0]?.trim() || 'Là Chính Mình';
     const amount = parseInt(payAmount) || 70000000;
     const pmLabels: Record<string,string> = {transfer:'Chuyển khoản',card:'Thẻ tín dụng',momo:'Ví điện tử'};
-    updateTodo(t.id, old => ({
-      ...old, stage:5, priority:'week', action:'CHECK-IN', badge:'✅ Enrolled', badgeColor:'green',
-      desc:'Theo dõi trải nghiệm tuần đầu.',
-      payment:{amount, course:courseName, method:pmLabels[payMethod]||'Chuyển khoản', txn:payTxn, date:nowStr()},
-      timeline:[{icon:'✅',action:`ENROLLED — ${courseName}`,date:nowStr(),who:'Linh Nguyễn',note:`${pmLabels[payMethod]||'Chuyển khoản'} · ${amount.toLocaleString('vi-VN')}₫${payTxn?' · Mã: '+payTxn:''}`}, ...old.timeline]
-    }));
-    setTeamMembers(prev => prev.map(m => m.isMe ? {...m, enrolled:m.enrolled+1, revenue:m.revenue+amount} : m));
-    launchConfetti();
-    setActiveId(t.id);
-    setTimeout(() => { setWinData({name:t.name, course:courseName, amount}); setShowWin(true); }, 400);
+    const uuid = UUID_BY_NUMERIC_ID[t.id];
+    const programSlug = COURSE_TO_PROGRAM[payCourse] ?? 'la-chinh-minh';
+    const paymentMethod = PAY_METHOD_MAP[payMethod] ?? 'bank_transfer';
+    const prevSnapshot = t;
+
+    const applyOptimistic = () => {
+      updateTodo(t.id, old => ({
+        ...old, stage:5, priority:'week', action:'CHECK-IN', badge:'✅ Enrolled', badgeColor:'green',
+        desc:'Theo dõi trải nghiệm tuần đầu.',
+        payment:{amount, course:courseName, method:pmLabels[payMethod]||'Chuyển khoản', txn:payTxn, date:nowStr()},
+        timeline:[{icon:'✅',action:`ENROLLED — ${courseName}`,date:nowStr(),who:'Linh Nguyễn',note:`${pmLabels[payMethod]||'Chuyển khoản'} · ${amount.toLocaleString('vi-VN')}₫${payTxn?' · Mã: '+payTxn:''}`}, ...old.timeline]
+      }));
+      setTeamMembers(prev => prev.map(m => m.isMe ? {...m, enrolled:m.enrolled+1, revenue:m.revenue+amount} : m));
+      launchConfetti();
+      setActiveId(t.id);
+      setTimeout(() => { setWinData({name:t.name, course:courseName, amount}); setShowWin(true); }, 400);
+    };
+
+    const rollback = (msg: string) => {
+      updateTodo(t.id, () => prevSnapshot);
+      setTeamMembers(prev => prev.map(m => m.isMe ? {...m, enrolled:Math.max(0,m.enrolled-1), revenue:Math.max(0,m.revenue-amount)} : m));
+      setShowWin(false);
+      alert('Enrollment thất bại: ' + msg);
+    };
+
+    setShowEnroll(false);
+
+    if (!uuid) {
+      // Lead local (INIT_TODOS fallback), không có UUID backend — chỉ local.
+      applyOptimistic();
+      return;
+    }
+
+    applyOptimistic();
+    enrollM.mutate(
+      {
+        leadId: uuid,
+        program_slug: programSlug,
+        payment_amount: amount,
+        payment_method: paymentMethod,
+        transaction_ref: payTxn.trim() || undefined,
+      },
+      {
+        onError: (err) => {
+          const e = err as { message?: string; code?: string };
+          if (e.code === 'LEAD_EMAIL_REQUIRED_FOR_ENROLLMENT') {
+            rollback('Lead chưa có email — cập nhật email trước khi Enrolled.');
+          } else if (e.code === 'LEAD_ALREADY_ENROLLED') {
+            rollback('Lead đã enrolled trước đó.');
+          } else {
+            rollback(e.message ?? 'Unknown error');
+          }
+        },
+      },
+    );
   }
 
   // ─── XFER ─────────────────────────────────────────
   function openXfer(id: number) {
-    setXferLeadId(id); setXferTab('transfer'); setXferTo('minh-leader');
+    setXferLeadId(id); setXferTab('transfer'); setXferTo('');
     setXferReason(''); setCodealPerson(''); setSplitMe(70); setCodealNote('');
     setShowXfer(true);
   }
   function confirmXfer() {
     const t = getTodo(xferLeadId!); if (!t) return;
+    const uuid = UUID_BY_NUMERIC_ID[t.id];
     if (xferTab === 'codeal') {
       if (!codealPerson) { showToast('⚠','Chọn người đồng hành',''); return; }
-      const personName = codealPerson.split('-').map(w=>w[0].toUpperCase()+w.slice(1)).join(' ');
-      const teamPerson = teamMembers.find(m => m.id === codealPerson);
-      const pName = teamPerson?.name || personName;
+      const teamPerson = apiTeammates.find(m => m.id === codealPerson);
+      const pName = teamPerson?.name || 'Co-dealer';
+      // Optimistic
       updateTodo(t.id, old => ({
         ...old,
         codeal: [...(old.codeal||[]), {name:pName, split:100-splitMe}],
-        timeline:[{icon:'🤝',action:`Co-deal: thêm ${pName} (${100-splitMe}%)`,date:nowStr(),who:'Linh Nguyễn',note:codealNote||`Chia hoa hồng Linh ${splitMe}% / ${pName} ${100-splitMe}%`}, ...old.timeline]
       }));
       showToast('🤝',`Co-deal với ${pName}`,`Hoa hồng: Linh ${splitMe}% · ${pName} ${100-splitMe}%`);
+      if (uuid) {
+        coDealM.mutate(
+          {
+            leadId: uuid,
+            co_dealer_user_id: codealPerson,
+            initiator_ratio: splitMe,
+            co_dealer_ratio: 100 - splitMe,
+            note: codealNote.trim() || undefined,
+          },
+          {
+            onError: (err) => {
+              // Rollback codeal
+              updateTodo(t.id, old => ({ ...old, codeal: (old.codeal||[]).slice(0, -1) }));
+              alert('Co-deal thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            },
+          },
+        );
+      }
     } else {
-      const toMember = teamMembers.find(m => m.id === xferTo);
-      const toName = toMember?.name || xferTo;
+      if (!xferTo) { showToast('⚠','Chọn người nhận',''); return; }
+      if (!xferReason.trim()) { showToast('⚠','Nhập lý do chuyển',''); return; }
+      const toMember = apiTeammates.find(m => m.id === xferTo);
+      const toName = toMember?.name || 'Teammate';
+      const prevAssigned = t.assignedTo;
+      // Optimistic
       updateTodo(t.id, old => ({
         ...old, assignedTo:toName, priority:'done', done:true,
-        timeline:[{icon:'↔️',action:`Chuyển case → ${toName}`,date:nowStr(),who:'Linh Nguyễn',note:xferReason||'Không có ghi chú'}, ...old.timeline]
       }));
       showToast('↔','Đã chuyển case',`${t.name} → ${toName}`);
+      if (uuid) {
+        transferM.mutate(
+          { leadId: uuid, to_user_id: xferTo, reason: xferReason.trim() },
+          {
+            onError: (err) => {
+              updateTodo(t.id, old => ({ ...old, assignedTo: prevAssigned, priority: 'urgent', done: false }));
+              alert('Chuyển case thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            },
+          },
+        );
+      }
     }
     setShowXfer(false);
   }
@@ -384,25 +653,67 @@ export default function App() {
   }
 
   // ─── PROFILE FIELD EDITING ─────────────────────────
+  // Map UI profile key -> backend LeadPatchField
+  type LeadPatchField = 'full_name' | 'email' | 'phone' | 'birth_date' | 'birth_time' | 'occupation' | 'goal' | 'main_concern';
+  const PF_KEY_MAP: Record<string, LeadPatchField> = {
+    dob: 'birth_date',
+    birthTime: 'birth_time',
+    job: 'occupation',
+    goal: 'goal',
+    pain: 'main_concern',
+  };
+  const BASIC_KEY_MAP: Record<string, LeadPatchField> = {
+    name: 'full_name',
+    phone: 'phone',
+    email: 'email',
+  };
+
+  function patchLeadField(tid: number, field: LeadPatchField, value: string, label: string) {
+    const uuid = UUID_BY_NUMERIC_ID[tid];
+    if (!uuid) return;
+    updateLeadM.mutate(
+      { leadId: uuid, patch: { [field]: value } as Partial<BackendLead> },
+      {
+        onError: (err) => {
+          alert(`Cập nhật ${label} thất bại: ` + (err instanceof Error ? err.message : 'Unknown error'));
+        },
+      },
+    );
+  }
+
   function savePF(tid: number, key: string, val: string) {
+    const trimmed = val.trim();
     updateTodo(tid, old => ({
-      ...old, profile:{...old.profile, [key]:val.trim()}
+      ...old, profile:{...old.profile, [key]:trimmed}
     }));
     setEditingFields(prev => ({...prev, [`${tid}-${key}`]:false}));
     setProfileDirty(true);
-    if (val.trim()) showToast('✅','Đã lưu', key + ' đã cập nhật');
+    if (trimmed) showToast('✅','Đã lưu', key + ' đã cập nhật');
+    const backendField = PF_KEY_MAP[key];
+    if (!backendField || !trimmed) return;
+    // Normalize dd/mm/yyyy -> yyyy-mm-dd cho birth_date
+    let value = trimmed;
+    if (backendField === 'birth_date') {
+      const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
+      if (m) value = `${m[3]}-${m[2]}-${m[1]}`;
+    }
+    patchLeadField(tid, backendField, value, key);
   }
   function saveBasicField(tid: number, key: string, val: string) {
-    if (!val.trim()) return;
+    const trimmed = val.trim();
+    if (!trimmed) return;
     updateTodo(tid, old => ({
       ...old,
-      name: key==='name' ? val.trim() : old.name,
-      phone: key==='phone' ? val.trim() : old.phone,
-      email: key==='email' ? val.trim() : old.email,
+      name: key==='name' ? trimmed : old.name,
+      phone: key==='phone' ? trimmed : old.phone,
+      email: key==='email' ? trimmed : old.email,
     }));
     setEditingFields(prev => ({...prev, [`basic-${tid}-${key}`]:false}));
     setProfileDirty(true);
-    showToast('✅','Đã cập nhật', `${key} → ${val.trim()}`);
+    showToast('✅','Đã cập nhật', `${key} → ${trimmed}`);
+    const backendField = BASIC_KEY_MAP[key];
+    if (!backendField) return;
+    patchLeadField(tid, backendField, trimmed, key);
   }
   function genProfile(id: number) {
     setGeneratingProfile(true);
@@ -424,40 +735,112 @@ export default function App() {
 
   // ─── NOTES ────────────────────────────────────────
   function sendNote(tid: number, text: string) {
-    if (!text.trim()) return;
-    const note: NoteItem = {text:text.trim(), date:nowStr(), who:'Linh Nguyễn'};
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const uuid = UUID_BY_NUMERIC_ID[tid];
+    // Optimistic: thêm note vào list ngay, gán id tạm. Khi API OK, update id thật.
+    const tempId = `temp-${Date.now()}`;
+    const note: NoteItem = {text:trimmed, date:nowStr(), who:'Linh Nguyễn', id:tempId};
     updateTodo(tid, old => ({
       ...old,
       notes: [note, ...old.notes],
-      timeline: [{icon:'📝',action:'Ghi chú cho người kế tiếp',date:nowStr(),who:'Linh Nguyễn',note:text.trim()}, ...old.timeline]
+      timeline: [{icon:'📝',action:'Ghi chú cho người kế tiếp',date:nowStr(),who:'Linh Nguyễn',note:trimmed}, ...old.timeline]
     }));
     showToast('📝','Ghi chú đã lưu','Người kế tiếp sẽ đọc được này');
+    if (!uuid) return;
+    createNoteM.mutate(
+      { leadId: uuid, content: trimmed },
+      {
+        onSuccess: (created) => {
+          if (!created) return;
+          updateTodo(tid, old => ({
+            ...old,
+            notes: old.notes.map(n => n.id === tempId ? { ...n, id: created.id } : n),
+          }));
+        },
+        onError: (err) => {
+          updateTodo(tid, old => ({ ...old, notes: old.notes.filter(n => n.id !== tempId) }));
+          alert('Lưu ghi chú thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        },
+      },
+    );
   }
+  // Lookup note UUID theo idx trong list note hi\u1ec7n UI (apiNotes n\u1ebfu c\u00f3, fallback local).
+  const resolveNoteId = (tid: number, idx: number): string | undefined => {
+    // Active lead: d\u00f9ng apiNotes (\u0111\u00e3 merge v\u00e0o activeTodoWithNotes UI render).
+    const active = activeTodoWithNotes ?? activeTodoRaw;
+    if (active && active.id === tid) return active.notes[idx]?.id;
+    // Fallback local state
+    return getTodo(tid)?.notes[idx]?.id;
+  };
+
   function saveNoteEdit(tid: number, idx: number, newVal: string) {
-    if (!newVal.trim()) return;
+    const trimmed = newVal.trim();
+    if (!trimmed) return;
+    const uuid = UUID_BY_NUMERIC_ID[tid];
+    const noteUuid = resolveNoteId(tid, idx);
+    const currentNotes = (activeTodoWithNotes && activeTodoWithNotes.id === tid ? activeTodoWithNotes.notes : getTodo(tid)?.notes) ?? [];
+    const prevText = currentNotes[idx]?.text ?? '';
     updateTodo(tid, old => {
       const notes = [...old.notes];
-      notes[idx] = {...notes[idx], text:newVal.trim()};
+      notes[idx] = {...notes[idx], text:trimmed};
       return {...old, notes};
     });
     setEditingNotes(prev => {const n={...prev};delete n[`${tid}-${idx}`];return n;});
+    if (!uuid || !noteUuid || noteUuid.startsWith('temp-')) return;
+    updateNoteM.mutate(
+      { leadId: uuid, noteId: noteUuid, content: trimmed },
+      {
+        onError: (err) => {
+          alert('Sửa ghi chú thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        },
+      },
+    );
   }
   function deleteNote(tid: number, idx: number) {
+    const uuid = UUID_BY_NUMERIC_ID[tid];
+    const noteUuid = resolveNoteId(tid, idx);
     updateTodo(tid, old => ({...old, notes:old.notes.filter((_,i)=>i!==idx)}));
     setEditingNotes(prev => {const n={...prev};delete n[`${tid}-${idx}`];return n;});
     showToast('🗑','Đã xóa ghi chú','');
+    if (!uuid || !noteUuid || noteUuid.startsWith('temp-')) return;
+    deleteNoteM.mutate(
+      { leadId: uuid, noteId: noteUuid },
+      {
+        onError: (err) => {
+          alert('Xóa ghi chú thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        },
+      },
+    );
   }
   function toggleCourse(tid: number, courseId: string) {
-    updateTodo(tid, old => {
-      const courses = old.courses.includes(courseId)
-        ? old.courses.filter(c=>c!==courseId)
-        : [...old.courses, courseId];
-      return {...old, courses};
-    });
-    const c = COURSES.find(x=>x.id===courseId);
     const t = getTodo(tid);
-    const adding = !t?.courses.includes(courseId);
+    if (!t) return;
+    const adding = !t.courses.includes(courseId);
+    const nextCourses = adding
+      ? [...t.courses, courseId]
+      : t.courses.filter(c => c !== courseId);
+    const prevCourses = t.courses;
+    // Optimistic
+    updateTodo(tid, old => ({ ...old, courses: nextCourses }));
+    const c = COURSES.find(x=>x.id===courseId);
     if (c) showToast(c.emoji, adding ? `Đã thêm ${c.name}` : `Đã bỏ ${c.name}`, '');
+
+    const uuid = UUID_BY_NUMERIC_ID[tid];
+    if (!uuid) return;
+    // Map course_id -> program_slug, skip n\u1ebfu kh\u00f4ng c\u00f3 mapping (vd course local)
+    const programs = nextCourses
+      .map(cid => COURSE_TO_PROGRAM[cid])
+      .filter((p): p is ProgramSlug => !!p);
+    updateLeadM.mutate(
+      { leadId: uuid, patch: { interested_programs: programs } },
+      {
+        onError: (err) => {
+          updateTodo(tid, old => ({ ...old, courses: prevCourses }));
+          alert('Lưu khóa thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        },
+      },
+    );
   }
   function toggleGuide(tid: number, idx: number) {
     setGuideChecks(prev => ({
@@ -471,10 +854,62 @@ export default function App() {
   }
 
   // ─── COMPUTED ─────────────────────────────────────
-  const activeTodo = getTodo(activeId!);
+  const activeTodoRaw = getTodo(activeId!);
+  const activeUuid = activeTodoRaw ? UUID_BY_NUMERIC_ID[activeTodoRaw.id] : undefined;
+  const { data: actionsData } = useLeadActions(activeUuid ?? null);
+  const { data: notesData } = useLeadNotes(activeUuid ?? null);
+
+  const apiTimeline: TLItem[] = useMemo(() => {
+    if (!actionsData) return [];
+    return actionsData.map((a: PipelineAction): TLItem => ({
+      icon: actionIconOf(a.action_type),
+      action: actionLabelOf(a),
+      date: new Date(a.created_at).toLocaleString('vi-VN'),
+      who: a.performed_by_full_name,
+      note: a.note_content ?? a.regression_reason ?? '',
+    }));
+  }, [actionsData]);
+
+  // N\u1ebfu c\u00f3 API timeline, override timeline c\u1ee7a activeTodo.
+  const activeTodo = activeTodoRaw && apiTimeline.length > 0
+    ? { ...activeTodoRaw, timeline: apiTimeline }
+    : activeTodoRaw;
+
+  // Notes t\u1eeb endpoint GET /notes (c\u00f3 UUID th\u1eadt). Fallback t\u1eeb actions n\u1ebfu endpoint r\u1ed7ng.
+  const apiNotes: NoteItem[] = useMemo(() => {
+    if (notesData && notesData.length > 0) {
+      return notesData.map(n => ({
+        id: n.id,
+        text: n.content,
+        who: n.author_full_name,
+        date: new Date(n.created_at).toLocaleDateString('vi-VN'),
+      }));
+    }
+    return [];
+  }, [notesData]);
+
+  // N\u1ebfu c\u00f3 API notes, override notes c\u1ee7a activeTodo (trong khi gi\u1eef timeline API).
+  const activeTodoWithNotes = activeTodo && apiNotes.length > 0
+    ? { ...activeTodo, notes: apiNotes }
+    : activeTodo;
+
+  // Danh s\u00e1ch teammate (UUID th\u1eadt) derive t\u1eeb leads \u0111\u1ec3 d\u00f9ng trong modal Transfer / Co-deal.
+  const apiTeammates = useMemo(() => {
+    const seen = new Map<string, { id: string; name: string }>();
+    (leads ?? []).forEach(l => {
+      if (!seen.has(l.assigned_to_user_id)) {
+        seen.set(l.assigned_to_user_id, { id: l.assigned_to_user_id, name: l.assigned_to_full_name });
+      }
+    });
+    return Array.from(seen.values());
+  }, [leads]);
+
   const urgent = todos.filter(t => t.priority === 'urgent');
   const today = todos.filter(t => t.priority === 'today');
-  const callTodo = getTodo(callId!);
+  const callTodoRaw = getTodo(callId!);
+  const callTodo = callTodoRaw && callTodoRaw.id === activeId
+    ? (activeTodoWithNotes ?? callTodoRaw)
+    : callTodoRaw;
 
   const todayDate = new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'long'});
 
@@ -489,6 +924,21 @@ export default function App() {
   const sortedTeam = [...teamMembers].sort((a,b)=>b.enrolled-a.enrolled);
 
   // ─── RENDER ───────────────────────────────────────
+  if (leadsLoading && !todosBootstrapped) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <div style={{ color: 'var(--t2)', fontSize: 13 }}>Đang tải dữ liệu…</div>
+      </div>
+    );
+  }
+  if (leadsError && !todosBootstrapped) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', gap: 8 }}>
+        <div style={{ color: 'var(--red)', fontSize: 14, fontWeight: 700 }}>Không tải được danh sách lead</div>
+        <div style={{ color: 'var(--t3)', fontSize: 12 }}>{leadsError instanceof Error ? leadsError.message : 'Unknown error'}</div>
+      </div>
+    );
+  }
   return (
     <>
       {/* TOPBAR */}
@@ -591,7 +1041,7 @@ export default function App() {
               {/* Center Body */}
               <div className="center-body">
                 <CenterBody
-                  t={activeTodo}
+                  t={activeTodoWithNotes ?? activeTodo}
                   guideChecks={guideChecks[activeTodo.id]||{}}
                   profileCards={profileCards}
                   onToggleGuide={(idx)=>toggleGuide(activeTodo.id,idx)}
@@ -649,6 +1099,7 @@ export default function App() {
           onEditField={(key)=>setEditingFields(prev=>({...prev,[key]:true}))}
           onSavePF={savePF}
           onSaveBasic={saveBasicField}
+          onMarkDirty={()=>setProfileDirty(true)}
           profileDirty={profileDirty}
           generatingProfile={generatingProfile}
           onGenProfile={genProfile}
@@ -732,15 +1183,12 @@ export default function App() {
               <div>
                 <div className="xm-label">Chuyển cho ai?</div>
                 <select className="xm-select" value={xferTo} onChange={e=>setXferTo(e.target.value)}>
-                  <optgroup label="Leaders">
-                    <option value="minh-leader">Minh Trần · Leader</option>
-                    <option value="hoa-leader">Hoa Lê · Leader</option>
-                  </optgroup>
-                  <optgroup label="Consultants">
-                    <option value="huong">Hương Nguyễn · Consultant</option>
-                    <option value="lan">Lan Phạm · Consultant</option>
-                    <option value="duc">Đức Võ · Consultant</option>
-                  </optgroup>
+                  <option value="">-- Chọn người nhận --</option>
+                  {apiTeammates
+                    .filter(m => m.id !== UUID_BY_NUMERIC_ID[xferLeadId ?? -1] // ko cho ch\u1ecdn ch\u00ednh owner hi\u1ec7n t\u1ea1i
+                      ? true
+                      : true)
+                    .map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
                 <div className="xm-label">Lý do chuyển</div>
                 <textarea className="xm-textarea" value={xferReason} onChange={e=>setXferReason(e.target.value)}
@@ -755,10 +1203,7 @@ export default function App() {
                 <div className="xm-label">Thêm người đồng hành</div>
                 <select className="xm-select" value={codealPerson} onChange={e=>setCodealPerson(e.target.value)}>
                   <option value="">-- Chọn --</option>
-                  <option value="huong">Hương Nguyễn</option>
-                  <option value="lan">Lan Phạm</option>
-                  <option value="duc">Đức Võ</option>
-                  <option value="minh-leader">Minh Trần · Leader</option>
+                  {apiTeammates.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
                 <div className="xm-label">Tỷ lệ chia hoa hồng</div>
                 <div className="split-row">
@@ -769,7 +1214,7 @@ export default function App() {
                   <span>+</span>
                   <div style={{textAlign:'center',flex:1}}>
                     <div style={{fontSize:10,color:'var(--t3)',fontFamily:'var(--mono)',marginBottom:4}}>
-                      {codealPerson ? teamMembers.find(m=>m.id===codealPerson)?.name?.split(' ')[0]||'Co-dealer' : 'Co-dealer'}
+                      {codealPerson ? apiTeammates.find(m=>m.id===codealPerson)?.name?.split(' ').slice(-1)[0]||'Co-dealer' : 'Co-dealer'}
                     </div>
                     <input type="number" value={100-splitMe} readOnly style={{background:'var(--stone)'}}/>
                   </div>
@@ -1213,7 +1658,7 @@ function NoteMessenger({t, onSendNote, onEditNote, onDeleteNote, onToggleCourse,
 }
 
 // ─── CALL SCREEN ─────────────────────────────────────
-function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, editingFields, onEditField, onSavePF, onSaveBasic, profileDirty, generatingProfile, onGenProfile, onRegenProfile, onSendNote, onEditNote, onDeleteNote, onToggleCourse, editingNotes, onStartEditNote, onCancelEditNote}: {
+function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, editingFields, onEditField, onSavePF, onSaveBasic, onMarkDirty, profileDirty, generatingProfile, onGenProfile, onRegenProfile, onSendNote, onEditNote, onDeleteNote, onToggleCourse, editingNotes, onStartEditNote, onCancelEditNote}: {
   t: Todo; tab: 'info'|'profile';
   onTabChange: (tab:'info'|'profile')=>void;
   onClose: ()=>void; onSaveClose: ()=>void;
@@ -1222,6 +1667,7 @@ function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, ed
   onEditField: (key:string)=>void;
   onSavePF: (tid:number,key:string,val:string)=>void;
   onSaveBasic: (tid:number,key:string,val:string)=>void;
+  onMarkDirty: ()=>void;
   profileDirty: boolean;
   generatingProfile: boolean;
   onGenProfile: (id:number)=>void;
@@ -1286,6 +1732,7 @@ function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, ed
                         <div className="pf-lbl">{f.label}</div>
                         {isEditing
                           ? <input className="pf-inp" defaultValue={f.val} autoFocus
+                              onChange={e=>{if(e.target.value.trim()!==(f.val||'').trim())onMarkDirty();}}
                               onBlur={e=>onSaveBasic(t.id,f.key,e.target.value)}
                               onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur();}}
                               placeholder={f.ph}/>
@@ -1320,6 +1767,7 @@ function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, ed
                           ? <div className="pf-val" onClick={()=>onEditField(fKey)}>{val}</div>
                           : <input className="pf-inp" defaultValue={val} autoFocus={isEditing}
                               placeholder={f.ph}
+                              onChange={e=>{if(e.target.value.trim()!==(val||'').trim())onMarkDirty();}}
                               onBlur={e=>onSavePF(t.id,f.key,e.target.value)}
                               onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur();}}/>
                         }
