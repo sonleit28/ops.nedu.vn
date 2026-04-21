@@ -1,7 +1,7 @@
 // src/mocks/handlers/dashboard.ts
 import { http, HttpResponse } from 'msw'
 import { getCurrentMockUserId, unauthorized } from '../config'
-import { MOCK_LEADS, getLeadsByPersonId } from '../data/leads'
+import { getLeadsByPersonId } from '../data/leads'
 
 export const dashboardHandlers = [
   http.get('*/api/ops/dashboard/me', async () => {

@@ -779,8 +779,6 @@ export default function App() {
     if (!trimmed) return;
     const uuid = UUID_BY_NUMERIC_ID[tid];
     const noteUuid = resolveNoteId(tid, idx);
-    const currentNotes = (activeTodoWithNotes && activeTodoWithNotes.id === tid ? activeTodoWithNotes.notes : getTodo(tid)?.notes) ?? [];
-    const prevText = currentNotes[idx]?.text ?? '';
     updateTodo(tid, old => {
       const notes = [...old.notes];
       notes[idx] = {...notes[idx], text:trimmed};

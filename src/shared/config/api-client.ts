@@ -2,14 +2,21 @@ import { supabase } from './supabase'
 import { env } from './env'
 
 export class ApiError extends Error {
+  status: number
+  code?: string
+  details?: Record<string, unknown>
+
   constructor(
-    public status: number,
+    status: number,
     message: string,
-    public code?: string,
-    public details?: Record<string, unknown>,
+    code?: string,
+    details?: Record<string, unknown>,
   ) {
     super(message)
     this.name = 'ApiError'
+    this.status = status
+    this.code = code
+    this.details = details
   }
 }
 
