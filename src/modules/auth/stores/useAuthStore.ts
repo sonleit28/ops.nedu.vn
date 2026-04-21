@@ -6,7 +6,7 @@ import type { AuthUser } from '@shared/types/auth'
 const IS_MOCK = import.meta.env.VITE_ENABLE_MOCKING === 'true'
 const MOCK_UID_KEY = 'mock_uid'
 // consultant-01 — default dev persona
-const DEFAULT_MOCK_ID = 'c3d4e5f6-a7b8-9012-cdef-345678901234'
+const DEFAULT_MOCK_ID = 'c3d4e5f6-a7b8-4012-9def-345678901234'
 
 interface AuthState {
   user: AuthUser | null
