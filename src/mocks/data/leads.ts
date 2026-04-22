@@ -15,6 +15,7 @@ export let MOCK_LEADS: Lead[] = [
     sla_breached: true, sla_breach_hours: 27, is_returning: false,
     has_co_deal: false, profile_completion_pct: 65,
     ai_profile_consent: true,
+    metadata: { temperature: 'hot' },
     created_at: '2026-04-17T06:00:00.000Z', updated_at: '2026-04-17T06:00:00.000Z',
   },
   {
@@ -28,6 +29,7 @@ export let MOCK_LEADS: Lead[] = [
     interested_programs: ['adult-learning', 'executive'],
     sla_breached: false, is_returning: false, has_co_deal: false, profile_completion_pct: 80,
     ai_profile_consent: false,
+    metadata: { temperature: 'warm' },
     created_at: '2026-04-15T09:00:00.000Z', updated_at: '2026-04-18T07:00:00.000Z',
   },
   {
@@ -40,6 +42,7 @@ export let MOCK_LEADS: Lead[] = [
     interested_programs: ['la-chinh-minh'],
     sla_breached: false, is_returning: true, has_co_deal: true, profile_completion_pct: 45,
     ai_profile_consent: false,
+    metadata: { temperature: 'hot' },
     created_at: '2026-04-10T08:00:00.000Z', updated_at: '2026-04-18T10:00:00.000Z',
   },
   {
