@@ -1,5 +1,6 @@
-import { supabase } from './supabase'
 import { env } from './env'
+import { tokenStorage } from './token-storage'
+import { refreshTokens } from './auth-central-client'
 
 export class ApiError extends Error {
   status: number
@@ -20,29 +21,70 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T | undefined> {
-  const { data: { session } } = await supabase.auth.getSession()
-  const headers: Record<string, string> = {}
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
-  if (session?.access_token) {
-    headers['Authorization'] = `Bearer ${session.access_token}`
-  }
+type AuthExpiredListener = () => void
+const authExpiredListeners: AuthExpiredListener[] = []
 
-  const res = await fetch(`${env.VITE_API_URL}/api${path}`, {
+export function onAuthExpired(fn: AuthExpiredListener): () => void {
+  authExpiredListeners.push(fn)
+  return () => {
+    const i = authExpiredListeners.indexOf(fn)
+    if (i >= 0) authExpiredListeners.splice(i, 1)
+  }
+}
+
+function notifyAuthExpired() {
+  authExpiredListeners.forEach((fn) => {
+    try { fn() } catch { /* ignore */ }
+  })
+}
+
+function buildHeaders(token: string | null, hasBody: boolean): Record<string, string> {
+  const headers: Record<string, string> = {}
+  if (hasBody) headers['Content-Type'] = 'application/json'
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  return headers
+}
+
+async function doFetch(method: string, path: string, body: unknown, token: string | null) {
+  return fetch(`${env.VITE_API_URL}/api${path}`, {
     method,
-    headers,
+    headers: buildHeaders(token, body !== undefined),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
+}
+
+async function request<T>(method: string, path: string, body?: unknown): Promise<T | undefined> {
+  let access = tokenStorage.getAccess()
+  let res = await doFetch(method, path, body, access)
+
+  // On 401, try a single refresh-and-retry cycle.
+  if (res.status === 401 && tokenStorage.getRefresh()) {
+    const newAccess = await refreshTokens()
+    if (newAccess) {
+      access = newAccess
+      res = await doFetch(method, path, body, access)
+    }
+  }
+
+  if (res.status === 401) {
+    notifyAuthExpired()
+  }
 
   if (res.status === 204) return undefined
 
-  const json = await res.json()
+  const text = await res.text()
+  const json = text ? JSON.parse(text) : null
 
   if (!res.ok) {
-    throw new ApiError(res.status, json.message ?? 'Unknown error', json.code, json.details)
+    throw new ApiError(
+      res.status,
+      json?.message ?? 'Unknown error',
+      json?.code,
+      json?.details,
+    )
   }
 
-  return json.data as T
+  return (json?.data ?? json) as T
 }
 
 export const api = {
