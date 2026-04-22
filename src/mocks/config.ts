@@ -1,9 +1,6 @@
 // src/mocks/config.ts
 import { HttpResponse } from 'msw'
-import { supabase } from '@shared/config/supabase'
 import { MOCK_PERSONS } from './data/persons'
-
-const IS_MOCK = import.meta.env.VITE_ENABLE_MOCKING === 'true'
 
 /** Key dùng để lưu mock user ID trong localStorage (dev only) */
 export const MOCK_UID_KEY = 'mock_uid'
@@ -12,14 +9,9 @@ export const MOCK_UID_KEY = 'mock_uid'
 export const DEFAULT_MOCK_ID = MOCK_PERSONS[2].id
 
 export async function getCurrentMockUserId(): Promise<string | null> {
-  // Mock mode: đọc từ localStorage, không cần Supabase session
-  if (IS_MOCK) {
-    return localStorage.getItem(MOCK_UID_KEY) ?? DEFAULT_MOCK_ID
-  }
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session?.user?.email) return null
-  const person = MOCK_PERSONS.find(p => p.email === session.user!.email)
-  return person?.id ?? null
+  // In mock mode we drive /auth/me off localStorage; in live mode MSW should
+  // be disabled (VITE_ENABLE_MOCKING=false) and real auth-central is used.
+  return localStorage.getItem(MOCK_UID_KEY) ?? DEFAULT_MOCK_ID
 }
 
 export async function getCurrentMockPerson() {
