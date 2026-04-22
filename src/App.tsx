@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLeads, useAdvanceStage, useCreateEnrollment, useCreateNote, useUpdateNote, useDeleteNote, useLeadActions, useLeadNotes, useUpdateLead, useTransferLead, useCreateCoDeal, usePersonalProfile, useGeneratePersonalProfile } from '@modules/ops/hooks/useLeads';
 import { useAuthStore } from '@modules/auth/stores/useAuthStore';
-import type { Lead as BackendLead, PipelineStage, ProgramSlug, PaymentMethod, PipelineAction, PersonalProfile as BackendPersonalProfile } from '@modules/ops/types';
+import type { Lead as BackendLead, LeadTemperature, PipelineStage, ProgramSlug, PaymentMethod, PipelineAction, PersonalProfile as BackendPersonalProfile } from '@modules/ops/types';
 
 const COURSE_TO_PROGRAM: Record<string, ProgramSlug> = {
   lcm: 'la-chinh-minh', adult: 'adult-learning', exec: 'executive',
@@ -87,6 +87,7 @@ type Todo = {
   color:string; days:number; testScore:number; testDesc:string;
   note:string; profile:Profile; courses:string[];
   timeline:TLItem[]; notes:NoteItem[]; done:boolean;
+  temperature?:LeadTemperature;
   codeal?:{name:string,split:number}[];
   assignedTo?:string; payment?:any;
 };
@@ -169,6 +170,9 @@ const STAGE_COLOR: Record<number, string> = {
   1: '#EF4444', 2: '#F59E0B', 3: '#8B5CF6', 4: '#06B6D4', 5: '#059669', 6: '#3B82F6',
 };
 
+// Sync với backend CONSULTANT_MAX_ACTIVE_LEADS — leader cảnh báo khi vượt.
+const LOAD_CAPACITY = 20;
+
 function leadToTodo(lead: BackendLead): Todo {
   const stage = STAGE_TO_NUM[lead.stage] ?? 1;
   const isMarketing = lead.source === 'marketing';
@@ -214,6 +218,7 @@ function leadToTodo(lead: BackendLead): Todo {
     timeline: [],
     notes: [],
     done: lead.stage === 'enrolled' || lead.stage === 'retention',
+    temperature: lead.metadata?.temperature,
     assignedTo: lead.assigned_to_full_name,
   };
 }
@@ -488,13 +493,18 @@ export default function App() {
     );
   }
 
+  // Stage 5 = Enrolled — không cho back về Intent (rule: enrolled là quyết định
+  // dứt khoát, đã tạo enrollment + email kích hoạt; muốn revert phải mở case riêng).
+  function canGoBack(stage: number) {
+    return stage > 1 && stage !== 5;
+  }
   function openBackPopover() {
-    const t = getTodo(activeId!); if (!t || t.stage <= 1) return;
+    const t = getTodo(activeId!); if (!t || !canGoBack(t.stage)) return;
     setBackReasonIdx(null); setBackOther('');
     setShowBack(true);
   }
   function executeBack() {
-    const t = getTodo(activeId!); if (!t || t.stage <= 1) { setShowBack(false); return; }
+    const t = getTodo(activeId!); if (!t || !canGoBack(t.stage)) { setShowBack(false); return; }
     let reason = backReasonIdx !== null ? BACK_REASONS[backReasonIdx].label : 'Không rõ lý do';
     if (backReasonIdx === 5 && backOther.trim()) reason = backOther.trim();
     const newStage = t.stage - 1;
@@ -982,6 +992,16 @@ export default function App() {
 
   const urgent = todos.filter(t => t.priority === 'urgent');
   const today = todos.filter(t => t.priority === 'today');
+
+  // ─── LOAD CAPACITY ─────────────────────────────────
+  // Active = lead chưa done (chưa enrolled/retention) → khớp định nghĩa BE.
+  const activeLoad = todos.filter(t => !t.done).length;
+  const loadPct = Math.min(100, Math.round((activeLoad / LOAD_CAPACITY) * 100));
+  const loadColor = activeLoad >= LOAD_CAPACITY
+    ? 'var(--red)'
+    : activeLoad >= LOAD_CAPACITY * 0.8
+    ? 'var(--amber)'
+    : 'var(--nedu)';
   const callTodoRaw = getTodo(callId!);
   const callTodo = callTodoRaw && callTodoRaw.id === activeId
     ? (activeTodoWithNotes ?? callTodoRaw)
@@ -1089,9 +1109,9 @@ export default function App() {
             <div className="load-bar-wrap">
               <div className="lb-row">
                 <span className="lb-label">Tải công việc</span>
-                <span className="lb-num" style={{color:'var(--amber)'}}>14<span style={{fontSize:10,color:'var(--t3)'}}>/20</span></span>
+                <span className="lb-num" style={{color: loadColor}}>{activeLoad}<span style={{fontSize:10,color:'var(--t3)'}}>/{LOAD_CAPACITY}</span></span>
               </div>
-              <div className="lb-track"><div className="lb-fill" style={{width:'70%'}}/></div>
+              <div className="lb-track"><div className="lb-fill" style={{width:`${loadPct}%`,background:loadColor}}/></div>
             </div>
           </div>
           {/* Urgent section */}
@@ -1130,9 +1150,17 @@ export default function App() {
               <FunnelBar t={activeTodo}/>
               {/* Stage Nav */}
               <div className="stage-nav">
-                <button className="sn-back" disabled={activeTodo.stage<=1}
-                  onClick={openBackPopover}>
-                  {activeTodo.stage<=1 ? '← Đầu funnel' : `← ${S_NAMES[activeTodo.stage-2]}`}
+                <button
+                  className="sn-back"
+                  disabled={!canGoBack(activeTodo.stage)}
+                  onClick={openBackPopover}
+                  title={activeTodo.stage===5 ? 'Enrolled không thể lùi stage' : undefined}
+                >
+                  {activeTodo.stage<=1
+                    ? '← Đầu funnel'
+                    : activeTodo.stage===5
+                    ? '🔒 Enrolled — khoá lùi'
+                    : `← ${S_NAMES[activeTodo.stage-2]}`}
                 </button>
                 <div className="sn-stages">
                   {S_NAMES.map((s,i) => {
@@ -1473,15 +1501,34 @@ function LeadCard({t, activeId, onSelect, onToggleDone}: {
   const srcBg = t.sourceType==='marketing' ? 'var(--blue-b)' : 'var(--stone)';
   const srcCl = t.sourceType==='marketing' ? 'var(--blue)' : 'var(--t3)';
   const srcLbl = t.sourceType==='marketing' ? '📢 Marketing' : '🌐 Inbound';
+  // Hot=đỏ, Warm=vàng, Cold=xanh dương (lấy từ metadata.temperature).
+  // Undefined: không tô viền (lead chưa được phân loại).
+  const tempBorder = t.temperature === 'hot' ? 'var(--red)'
+    : t.temperature === 'warm' ? 'var(--amber)'
+    : t.temperature === 'cold' ? 'var(--blue)'
+    : undefined;
+  const tempBadge = t.temperature === 'hot'
+    ? { bg: 'var(--red-s)', fg: 'var(--red)', label: '🔥 Hot lead' }
+    : t.temperature === 'warm'
+    ? { bg: 'var(--amber-s)', fg: 'var(--amber)', label: '🌤 Warm lead' }
+    : t.temperature === 'cold'
+    ? { bg: 'var(--blue-s)', fg: 'var(--blue)', label: '❄ Cold lead' }
+    : null;
   return (
-    <div className={`action-item ${uc} ${isA?'active':''} ${t.done?'done':''}`}
-      onClick={()=>onSelect(t.id)}>
+    <div
+      className={`action-item ${uc} ${isA?'active':''} ${t.done?'done':''}`}
+      onClick={()=>onSelect(t.id)}
+      style={tempBorder ? { borderLeft: `4px solid ${tempBorder}` } : undefined}
+    >
       <div className={`ai-check${t.done?' checked':''}`} onClick={e=>onToggleDone(e,t.id)}/>
       <div className="ai-body">
         <div className="ai-action">{t.action}</div>
         <div className="ai-name">{t.name}</div>
         <div className="ai-desc">{t.desc}</div>
         <div className="ai-badges">
+          {tempBadge && (
+            <span className="ai-badge" style={{background:tempBadge.bg,color:tempBadge.fg}}>{tempBadge.label}</span>
+          )}
           <span className="ai-badge" style={{background:bb[t.badgeColor]||'var(--stone)',color:bc[t.badgeColor]||'var(--t2)'}}>{t.badge}</span>
           <span className="ai-badge" style={{background:srcBg,color:srcCl}}>{srcLbl}</span>
         </div>

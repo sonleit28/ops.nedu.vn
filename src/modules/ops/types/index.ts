@@ -5,6 +5,15 @@ export type LeadSource = 'inbound' | 'marketing' | 'referral' | 'alumni'
 export type PaymentMethod = 'bank_transfer' | 'credit_card' | 'e_wallet'
 export type ProgramSlug = 'la-chinh-minh' | 'adult-learning' | 'executive' | 'short-course' | 'corporate'
 
+export type LeadTemperature = 'hot' | 'warm' | 'cold'
+
+// Free-form metadata bag — keys do FE/BE thoả thuận, không bị schema enforce.
+// `temperature` quyết định màu thẻ lead ở sidebar (hot=đỏ, warm=vàng).
+export interface LeadMetadata {
+  temperature?: LeadTemperature
+  [key: string]: unknown
+}
+
 export interface Lead {
   id: string
   full_name: string
@@ -27,6 +36,7 @@ export interface Lead {
   has_co_deal: boolean
   profile_completion_pct: number
   ai_profile_consent: boolean
+  metadata?: LeadMetadata | null
   created_at: string
   updated_at: string
 }
