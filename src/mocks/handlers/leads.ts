@@ -79,6 +79,12 @@ export const leadsHandlers = [
         { status: 422 },
       )
     }
+    if (body.direction === 'back' && MOCK_LEADS[idx].stage === 'enrolled') {
+      return HttpResponse.json(
+        { statusCode: 422, message: 'Không thể lùi stage từ Enrolled', error: 'Unprocessable Entity', code: 'STAGE_REGRESSION_FROM_ENROLLED_FORBIDDEN' },
+        { status: 422 },
+      )
+    }
     const curIdx = STAGE_ORDER.indexOf(MOCK_LEADS[idx].stage)
     const nextIdx = body.direction === 'forward' ? curIdx + 1 : curIdx - 1
     if (nextIdx < 0 || nextIdx >= STAGE_ORDER.length) {
