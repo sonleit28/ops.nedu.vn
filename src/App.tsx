@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLeads, useAdvanceStage, useCreateEnrollment, useCreateNote, useUpdateNote, useDeleteNote, useLeadActions, useLeadNotes, useUpdateLead, useTransferLead, useCreateCoDeal, usePersonalProfile, useGeneratePersonalProfile } from '@modules/ops/hooks/useLeads';
+import { useLeadStream } from '@modules/ops/hooks/useLeadStream';
+import { useCatchUpNotifications } from '@modules/ops/hooks/useCatchUpNotifications';
 import { useAuthStore } from '@modules/auth/stores/useAuthStore';
+import { useNotificationStore } from '@shared/stores/notification-store';
 import type { Lead as BackendLead, LeadTemperature, PipelineStage, ProgramSlug, PaymentMethod, PipelineAction, PersonalProfile as BackendPersonalProfile } from '@modules/ops/types';
 
 const COURSE_TO_PROGRAM: Record<string, ProgramSlug> = {
@@ -429,9 +432,11 @@ export default function App() {
   const [editingFields, setEditingFields] = useState<Record<string,boolean>>({});
   const [profileDirty, setProfileDirty] = useState(false);
   const [generatingProfile, setGeneratingProfile] = useState(false);
-  // Toast
-  const [toast, setToast] = useState<{icon:string,text:string,sub:string}|null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout>|null>(null);
+  // Toast: state lifted sang shared notification store. Cùng 1 UI dùng cho
+  // (a) local action feedback (save, delete, ...) qua showToast local wrapper
+  // (b) BE notifications từ useLeadStream + useCatchUpNotifications.
+  const toast = useNotificationStore((s) => s.current);
+  const pushToast = useNotificationStore((s) => s.push);
   // Enroll payment
   const [payMethod, setPayMethod] = useState('transfer');
   const [payCourse, setPayCourse] = useState('lcm');
@@ -452,15 +457,17 @@ export default function App() {
   const [teamMembers, setTeamMembers] = useState(TEAM_MEMBERS.map(m => ({...m})));
 
   const showToast = useCallback((icon: string, text: string, sub: string) => {
-    setToast({icon,text,sub});
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 3500);
-  }, []);
+    pushToast({ icon, text, sub });
+  }, [pushToast]);
 
   useEffect(() => {
     setTimeout(() => setActiveId(6), 350);
-    setTimeout(() => showToast('📢','Marketing Team','Vũ Thị Phương — lead mới từ Facebook Ads Campaign T4'), 4000);
-  }, [showToast]);
+  }, []);
+
+  // BE notifications: SSE stream + catch-up khi mở app. Gate theo auth user.
+  const authUser = useAuthStore((s) => s.user);
+  useLeadStream(!!authUser);
+  useCatchUpNotifications(!!authUser);
 
   const updateTodo = useCallback((id: number, updater: (t: Todo) => Todo) => {
     setTodos(prev => prev.map(t => t.id === id ? updater(t) : t));
