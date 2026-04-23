@@ -92,7 +92,14 @@ async function request<T>(
   // BE's TransformInterceptor wrap mọi response thành { data: T }.
   // Mặc định unwrap để caller nhận T trực tiếp (list, detail, KPI...).
   // Endpoint cần đọc meta ngoài data (paginated, catch-up) → dùng api.getRaw.
-  if (unwrapData) return (json?.data ?? json) as T
+  // Phải check 'data' in json — KHÔNG dùng `??` vì `data: null` hợp lệ
+  // (ví dụ: getPersonalProfile khi chưa có row trả về {data: null}).
+  if (unwrapData) {
+    if (json !== null && typeof json === 'object' && 'data' in json) {
+      return (json as { data: T }).data
+    }
+    return json as T
+  }
   return json as T
 }
 
