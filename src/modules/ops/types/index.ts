@@ -6,11 +6,18 @@ export type PaymentMethod = 'bank_transfer' | 'credit_card' | 'e_wallet'
 export type ProgramSlug = 'la-chinh-minh' | 'adult-learning' | 'executive' | 'short-course' | 'corporate'
 
 export type LeadTemperature = 'hot' | 'warm' | 'cold'
+export type LeadGender = 'male' | 'female'
 
 // Free-form metadata bag — keys do FE/BE thoả thuận, không bị schema enforce.
 // `temperature` quyết định màu thẻ lead ở sidebar (hot=đỏ, warm=vàng).
+// `gender` bắt buộc khi generate personal profile (nlh-vault yêu cầu).
+// `birth_place`/`birth_lat`/`birth_lng` optional — bật được natal chart ở vault.
 export interface LeadMetadata {
   temperature?: LeadTemperature
+  gender?: LeadGender
+  birth_place?: string
+  birth_lat?: number
+  birth_lng?: number
   [key: string]: unknown
 }
 
@@ -101,9 +108,12 @@ export interface PersonalProfile {
   real_need: string
   timing_2026: string
   opening_suggestion: string
-  life_path_number?: number
-  nine_star?: string
-  nhut_chu?: string
+  // 5-system chip snapshot:
+  life_path_number?: number | null       // Thần số học
+  nhut_chu?: string | null                // Bát tự — Day Master
+  nine_star?: string | null               // Nine Star Ki — Year Star
+  sun_sign?: string | null                // Cung hoàng đạo — Sun sign
+  menh_cuc?: string | null                // Tử vi — Mệnh Cục
   created_at: string
   updated_at: string
 }

@@ -80,7 +80,7 @@ const COURSES = [
   {id:'corp',  name:'Corporate',        emoji:'🏢', desc:'Doanh nghiệp'},
 ];
 
-type Profile = {dob:string; birthTime:string; job:string; goal:string; pain:string};
+type Profile = {dob:string; birthTime:string; job:string; goal:string; pain:string; gender?:'male'|'female'};
 type TLItem = {icon?:string; action?:string; date?:string; who?:string; note?:string; isDivider?:boolean; label?:string};
 type NoteItem = {text:string; date:string; who:string; id?:string};
 type Todo = {
@@ -91,24 +91,32 @@ type Todo = {
   note:string; profile:Profile; courses:string[];
   timeline:TLItem[]; notes:NoteItem[]; done:boolean;
   temperature?:LeadTemperature;
+  aiProfileConsent?:boolean;
   codeal?:{name:string,split:number}[];
   assignedTo?:string; payment?:any;
 };
 type ProfileCard = {
-  gen:boolean; dm:string; lp:string; nk:string; gua:string;
+  gen:boolean;
+  // 5-system chip snapshot
+  dm:string;      // Bát tự — Day Master (nhut_chu)
+  lp:string;      // Thần số học — Life Path
+  nk:string;      // Nine Star Ki — year star
+  sun:string;     // Cung hoàng đạo — Sun sign
+  menh:string;    // Tử vi — Mệnh Cục
+  gua:string;     // (legacy, giữ lại cho compat)
   q:string; core:string; talk:{y:boolean,t:string}[];
   need:string; timing:string; opening:string;
 };
 
 const PROFILE_CARDS_INIT: Record<number, ProfileCard> = {
-  4:{gen:true,dm:'Giáp Mộc 甲',lp:'6',nk:'Sao 1 Thủy',gua:'7',
+  4:{gen:true,dm:'Giáp Mộc 甲',lp:'6',nk:'Sao 1 Thủy',sun:'Xử Nữ',menh:'Mộc Tam Cục',gua:'7',
      q:'"Cây đại thụ tìm gốc rễ — thành công bên ngoài, trống rỗng bên trong."',
      core:'Giáp Mộc nhật chủ — lãnh đạo bẩm sinh, thẳng thắn. Cần được tôn trọng. Bên ngoài mạnh nhưng thiếu kết nối chiều sâu.',
      talk:[{y:true,t:'<strong>Nói thẳng, không vòng vo.</strong> Dùng "kết quả", "ROI", "hệ thống".'},{y:true,t:'<strong>Tôn trọng trí tuệ.</strong> Không giải thích quá kỹ.'},{y:false,t:'<strong>Tránh:</strong> "cảm xúc", "chữa lành". Thay bằng "kết nối nội tâm", "lãnh đạo minh mẫn".'}],
      need:'CEO thành đạt nhưng cô đơn trong vai trò. Đội nhóm sợ, gia đình xa cách. Muốn tìm ý nghĩa thật sự.',
      timing:'2026: Sao 1 vào Trung Cung — năm bước ngoặt nội tâm lớn nhất 9 năm qua.',
      opening:'"Anh Nam, anh không cần thêm kiến thức kinh doanh. Điều anh đang tìm là đội nhóm thật sự tin anh, và gia đình cảm nhận được anh đang hiện diện với họ."'},
-  6:{gen:true,dm:'Đinh Hỏa 丁',lp:'9',nk:'Sao 3 Chấn',gua:'2',
+  6:{gen:true,dm:'Đinh Hỏa 丁',lp:'9',nk:'Sao 3 Chấn',sun:'Sư Tử',menh:'Hỏa Lục Cục',gua:'2',
      q:'"Ngọn nến đã cháy lại — lần này chính mình thắp."',
      core:'Đinh Hỏa — ngọn nến ấm, sâu. Năm 2022 Thủy vượng (cảm xúc lấn át). 2026 Sao 3 Chấn — Mộc sinh Hỏa — lần đầu thật sự sẵn sàng từ bên trong.',
      talk:[{y:true,t:'<strong>Thừa nhận quá khứ:</strong> "Em biết anh đã tìm hiểu từ trước..."'},{y:true,t:'<strong>Nhấn mạnh sự thay đổi thời điểm.</strong> "Năm 2022 khác. Năm nay khác."'},{y:false,t:'<strong>Tránh:</strong> Ép quyết định nhanh. Anh đã chờ 3 năm — không phải quyết định bốc đồng.'}],
@@ -216,12 +224,14 @@ function leadToTodo(lead: BackendLead): Todo {
       job: lead.occupation ?? '',
       goal: lead.goal ?? '',
       pain: lead.main_concern ?? '',
+      gender: lead.metadata?.gender as ('male'|'female'|undefined),
     },
     courses: lead.interested_programs.map(p => PROGRAM_TO_COURSE[p]).filter(Boolean),
     timeline: [],
     notes: [],
     done: lead.stage === 'enrolled' || lead.stage === 'retention',
     temperature: lead.metadata?.temperature,
+    aiProfileConsent: lead.ai_profile_consent,
     assignedTo: lead.assigned_to_full_name,
   };
 }
@@ -722,13 +732,50 @@ export default function App() {
     );
   }
 
+  // Banner "Hồ sơ đã thay đổi → Cập nhật Profile" chỉ có nghĩa khi đã có
+  // profile generated rồi. Nếu chưa → consultant đang điền lần đầu, không
+  // hiện banner vàng (flow "Tạo Profile" sẽ dẫn).
+  function markDirtyIfGenerated(tid: number) {
+    if (profileCards[tid]?.gen) setProfileDirty(true);
+  }
+
+  function setGender(tid: number, gender: 'male' | 'female') {
+    updateTodo(tid, old => ({ ...old, profile: { ...old.profile, gender } }));
+    markDirtyIfGenerated(tid);
+    const uuid = UUID_BY_NUMERIC_ID[tid];
+    if (!uuid) return;
+    // Backend shallow-merge metadata → chỉ gửi key mình cần ghi.
+    updateLeadM.mutate(
+      { leadId: uuid, patch: { metadata: { gender } } as Partial<BackendLead> },
+      {
+        onError: (err) => {
+          alert('Lưu giới tính thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        },
+      },
+    );
+  }
+
+  function setConsent(tid: number, consent: boolean) {
+    updateTodo(tid, old => ({ ...old, aiProfileConsent: consent }));
+    const uuid = UUID_BY_NUMERIC_ID[tid];
+    if (!uuid) return;
+    updateLeadM.mutate(
+      { leadId: uuid, patch: { ai_profile_consent: consent } as Partial<BackendLead> },
+      {
+        onError: (err) => {
+          alert('Lưu consent thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        },
+      },
+    );
+  }
+
   function savePF(tid: number, key: string, val: string) {
     const trimmed = val.trim();
     updateTodo(tid, old => ({
       ...old, profile:{...old.profile, [key]:trimmed}
     }));
     setEditingFields(prev => ({...prev, [`${tid}-${key}`]:false}));
-    setProfileDirty(true);
+    markDirtyIfGenerated(tid);
     if (trimmed) showToast('✅','Đã lưu', key + ' đã cập nhật');
     const backendField = PF_KEY_MAP[key];
     if (!backendField || !trimmed) return;
@@ -750,13 +797,17 @@ export default function App() {
       email: key==='email' ? trimmed : old.email,
     }));
     setEditingFields(prev => ({...prev, [`basic-${tid}-${key}`]:false}));
-    setProfileDirty(true);
+    markDirtyIfGenerated(tid);
     showToast('✅','Đã cập nhật', `${key} → ${trimmed}`);
     const backendField = BASIC_KEY_MAP[key];
     if (!backendField) return;
     patchLeadField(tid, backendField, trimmed, key);
   }
-  function genProfile(id: number) {
+  // force=true khi consultant bấm "↻ Cập nhật Profile" (banner dirty) — ép
+  // regenerate kể cả khi birth data chưa đổi (vault cache theo fingerprint
+  // birth_date/time/tz/location/gender; các field như job/goal/name không
+  // nằm trong fingerprint → cần force để narrative pickup).
+  function genProfile(id: number, force = false) {
     const uuid = UUID_BY_NUMERIC_ID[id];
     setGeneratingProfile(true);
     if (!uuid) {
@@ -764,7 +815,7 @@ export default function App() {
       setTimeout(() => {
         setProfileCards(prev => ({
           ...prev,
-          [id]:{gen:true,dm:'Nhâm Thủy 壬',lp:'5',nk:'Sao 5 Thổ',gua:'4',
+          [id]:{gen:true,dm:'Nhâm Thủy 壬',lp:'5',nk:'Sao 5 Thổ',sun:'Cự Giải',menh:'Thủy Nhị Cục',gua:'4',
             q:'"Dòng sông sâu không ồn ào — sức mạnh nằm trong chiều sâu."',
             core:'Nhâm Thủy nhật chủ — chiều sâu nội tâm lớn. Quyết định bằng cảm nhận + logic.',
             talk:[{y:true,t:'<strong>Cho thời gian suy nghĩ.</strong>'},{y:false,t:'<strong>Tránh:</strong> ép quyết định.'}],
@@ -778,14 +829,19 @@ export default function App() {
       return;
     }
     genProfileM.mutate(
-      { leadId: uuid },
+      { leadId: uuid, force },
       {
         onSuccess: (result) => {
           if (result) {
             setProfileCards(prev => ({ ...prev, [id]: apiToProfileCard(result) }));
           }
           setGeneratingProfile(false);
-          showToast('✨','Personal Profile đã tạo!','Xem tab Personal Profile');
+          setProfileDirty(false); // banner tắt vì profile vừa refresh.
+          showToast(
+            force ? '↻' : '✨',
+            force ? 'Đã cập nhật Profile!' : 'Personal Profile đã tạo!',
+            'Xem tab Personal Profile',
+          );
         },
         onError: (err) => {
           setGeneratingProfile(false);
@@ -793,7 +849,11 @@ export default function App() {
           if (e.code === 'MISSING_BIRTH_DATE') {
             alert('Cần có ngày sinh để tạo Personal Profile. Điền ngày sinh trong tab Hồ Sơ trước.');
           } else if (e.code === 'AI_PROFILE_CONSENT_REQUIRED') {
-            alert('Lead chưa đồng ý cho phép tạo Personal Profile — xin consent trước.');
+            alert('Lead chưa đồng ý cho phép tạo Personal Profile — bật toggle Consent trong tab Hồ Sơ.');
+          } else if (e.code === 'MISSING_GENDER') {
+            alert('Cần chọn giới tính (Nam/Nữ) trước khi tạo Personal Profile — chọn trong tab Hồ Sơ.');
+          } else if (e.code === 'VAULT_FACET_NOT_SUPPORTED') {
+            alert('Backend vault chưa hỗ trợ facet này. Liên hệ dev.');
           } else {
             alert('Tạo profile thất bại: ' + (e.message ?? 'Unknown error'));
           }
@@ -934,8 +994,10 @@ export default function App() {
     return {
       gen: true,
       dm: p.nhut_chu ?? '—',
-      lp: p.life_path_number !== undefined ? String(p.life_path_number) : '—',
+      lp: p.life_path_number != null ? String(p.life_path_number) : '—',
       nk: p.nine_star ?? '—',
+      sun: p.sun_sign ?? '—',
+      menh: p.menh_cuc ?? '—',
       gua: '—',
       q: p.opening_suggestion ?? '',
       core: p.core_personality ?? '',
@@ -947,9 +1009,25 @@ export default function App() {
   }
 
   // Sync profile API vào profileCards khi data về (by numeric id).
+  // - profileApi object → populate/overwrite card từ backend
+  // - profileApi null (backend nói "chưa có profile") → clear card để UI
+  //   show "Tạo Personal Profile" state, không để leftover stale data.
   useEffect(() => {
-    if (!profileApi || !activeTodoRaw) return;
-    setProfileCards(prev => ({ ...prev, [activeTodoRaw.id]: apiToProfileCard(profileApi) }));
+    if (!activeTodoRaw) return;
+    if (profileApi === undefined) return; // chưa fetch xong
+    const tid = activeTodoRaw.id;
+    setProfileCards(prev => {
+      if (profileApi === null) {
+        if (!(tid in prev)) return prev;
+        const next = { ...prev };
+        delete next[tid];
+        return next;
+      }
+      return { ...prev, [tid]: apiToProfileCard(profileApi) };
+    });
+    // Khi backend xác nhận profile state, reset dirty — consultant chưa
+    // đổi gì kể từ lần load này.
+    setProfileDirty(false);
   }, [profileApi, activeTodoRaw]);
 
   const apiTimeline: TLItem[] = useMemo(() => {
@@ -1252,11 +1330,13 @@ export default function App() {
           onEditField={(key)=>setEditingFields(prev=>({...prev,[key]:true}))}
           onSavePF={savePF}
           onSaveBasic={saveBasicField}
-          onMarkDirty={()=>setProfileDirty(true)}
+          onSetGender={setGender}
+          onSetConsent={setConsent}
+          onMarkDirty={()=>markDirtyIfGenerated(callTodo.id)}
           profileDirty={profileDirty}
           generatingProfile={generatingProfile}
           onGenProfile={genProfile}
-          onRegenProfile={(id)=>{setProfileDirty(false);genProfile(id);showToast('↻','Đang cập nhật Profile...','Dựa trên thông tin mới nhất');}}
+          onRegenProfile={(id)=>{setProfileDirty(false);genProfile(id, true);showToast('↻','Đang cập nhật Profile...','Dựa trên thông tin mới nhất');}}
           onSendNote={(text)=>sendNote(callTodo.id,text)}
           onEditNote={(idx,val)=>saveNoteEdit(callTodo.id,idx,val)}
           onDeleteNote={(idx)=>deleteNote(callTodo.id,idx)}
@@ -1830,7 +1910,7 @@ function NoteMessenger({t, onSendNote, onEditNote, onDeleteNote, onToggleCourse,
 }
 
 // ─── CALL SCREEN ─────────────────────────────────────
-function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, editingFields, onEditField, onSavePF, onSaveBasic, onMarkDirty, profileDirty, generatingProfile, onGenProfile, onRegenProfile, onSendNote, onEditNote, onDeleteNote, onToggleCourse, editingNotes, onStartEditNote, onCancelEditNote}: {
+function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, editingFields, onEditField, onSavePF, onSaveBasic, onSetGender, onSetConsent, onMarkDirty, profileDirty, generatingProfile, onGenProfile, onRegenProfile, onSendNote, onEditNote, onDeleteNote, onToggleCourse, editingNotes, onStartEditNote, onCancelEditNote}: {
   t: Todo; tab: 'info'|'profile';
   onTabChange: (tab:'info'|'profile')=>void;
   onClose: ()=>void; onSaveClose: ()=>void;
@@ -1839,6 +1919,8 @@ function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, ed
   onEditField: (key:string)=>void;
   onSavePF: (tid:number,key:string,val:string)=>void;
   onSaveBasic: (tid:number,key:string,val:string)=>void;
+  onSetGender: (tid:number,gender:'male'|'female')=>void;
+  onSetConsent: (tid:number,consent:boolean)=>void;
   onMarkDirty: ()=>void;
   profileDirty: boolean;
   generatingProfile: boolean;
@@ -1916,7 +1998,7 @@ function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, ed
                   );
                 })}
               </div>
-              {profileDirty && (
+              {profileDirty && profileCards[t.id]?.gen && (
                 <div className="profile-dirty">
                   <div className="pd-text">✏️ <strong>Hồ sơ đã thay đổi</strong> — cập nhật Personal Profile để tư vấn chính xác hơn</div>
                   <button className="btn btn-sm" style={{background:'var(--amber)',color:'#fff',flexShrink:0}} onClick={()=>onRegenProfile(t.id)}>↻ Cập nhật Profile</button>
@@ -1926,20 +2008,20 @@ function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, ed
                 <div className={`ps-title${PF_FIELDS.every(f=>(t.profile[f.key as keyof Profile]||'').trim())?' filled':''}`}>🧩 Hồ sơ cá nhân — điền khi gọi</div>
                 {PF_FIELDS.map(f => {
                   const val = t.profile[f.key as keyof Profile] || '';
-                  const filled = !!val.trim();
+                  const filled = typeof val==='string' ? !!val.trim() : !!val;
                   const fKey = `pf-${t.id}-${f.key}`;
                   const isEditing = editingFields[fKey];
-                  const age = f.key==='dob' && val ? calcAge(val) : '';
+                  const age = f.key==='dob' && typeof val==='string' && val ? calcAge(val) : '';
                   return (
                     <div key={f.key} className={`pf-item${filled?' filled':''}${isEditing?' editing-field':''}`}>
                       <div className="pf-icon">{f.icon}</div>
                       <div className="pf-content">
                         <div className="pf-lbl">{f.label}{age && <span style={{color:'var(--green)',fontSize:9,fontFamily:'var(--mono)',marginLeft:3}}>{age}</span>}</div>
                         {filled && !isEditing
-                          ? <div className="pf-val" onClick={()=>onEditField(fKey)}>{val}</div>
-                          : <input className="pf-inp" defaultValue={val} autoFocus={isEditing}
+                          ? <div className="pf-val" onClick={()=>onEditField(fKey)}>{String(val)}</div>
+                          : <input className="pf-inp" defaultValue={typeof val==='string' ? val : ''} autoFocus={isEditing}
                               placeholder={f.ph}
-                              onChange={e=>{if(e.target.value.trim()!==(val||'').trim())onMarkDirty();}}
+                              onChange={e=>{if(e.target.value.trim()!==(typeof val==='string'?val.trim():''))onMarkDirty();}}
                               onBlur={e=>onSavePF(t.id,f.key,e.target.value)}
                               onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur();}}/>
                         }
@@ -1951,6 +2033,47 @@ function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, ed
                     </div>
                   );
                 })}
+                {/* Gender — bắt buộc để tính BaZi/Tử Vi/Nine Star Ki chính xác */}
+                <div className={`pf-item${t.profile?.gender?' filled':''}`}>
+                  <div className="pf-icon">⚥</div>
+                  <div className="pf-content">
+                    <div className="pf-lbl">Giới tính <span style={{color:'var(--red)',fontSize:9,fontFamily:'var(--mono)',marginLeft:3}}>bắt buộc</span></div>
+                    <div style={{display:'flex',gap:8,marginTop:4}}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{flex:1,borderColor:t.profile?.gender==='male'?'var(--blue)':'var(--stone2)',background:t.profile?.gender==='male'?'var(--blue-b)':'transparent',color:t.profile?.gender==='male'?'var(--blue)':'var(--t2)'}}
+                        onClick={()=>onSetGender(t.id,'male')}
+                      >♂ Nam</button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{flex:1,borderColor:t.profile?.gender==='female'?'var(--pink, #EC4899)':'var(--stone2)',background:t.profile?.gender==='female'?'rgba(236,72,153,.1)':'transparent',color:t.profile?.gender==='female'?'#EC4899':'var(--t2)'}}
+                        onClick={()=>onSetGender(t.id,'female')}
+                      >♀ Nữ</button>
+                    </div>
+                  </div>
+                  <div className={`pf-tick${t.profile?.gender?' y':' n'}`}>{t.profile?.gender?'✓':'+'}</div>
+                </div>
+                {/* AI Profile Consent — bắt buộc trước khi gọi vault */}
+                <div className={`pf-item${t.aiProfileConsent?' filled':''}`}>
+                  <div className="pf-icon">🛡️</div>
+                  <div className="pf-content">
+                    <div className="pf-lbl">Consent tạo Personal Profile <span style={{color:'var(--red)',fontSize:9,fontFamily:'var(--mono)',marginLeft:3}}>bắt buộc</span></div>
+                    <div style={{fontSize:11,color:'var(--t2)',lineHeight:1.5,marginTop:3}}>
+                      Prospect đã đồng ý để mình dùng dữ liệu ngày/giờ sinh để tạo profile AI.
+                    </div>
+                    <label style={{display:'inline-flex',alignItems:'center',gap:6,marginTop:6,cursor:'pointer',fontSize:12}}>
+                      <input
+                        type="checkbox"
+                        checked={!!t.aiProfileConsent}
+                        onChange={e=>onSetConsent(t.id,e.target.checked)}
+                      />
+                      <span>Đã có consent</span>
+                    </label>
+                  </div>
+                  <div className={`pf-tick${t.aiProfileConsent?' y':' n'}`}>{t.aiProfileConsent?'✓':'+'}</div>
+                </div>
               </div>
             </div>
             {/* Right col: history */}
@@ -2002,24 +2125,34 @@ function ProfileCardView({t, profileCards, generatingProfile, onGenProfile, onSw
 }) {
   const pc = profileCards[t.id];
   const hasDOB = (t.profile?.dob||'').trim();
+  const hasGender = !!t.profile?.gender;
+  const hasConsent = !!t.aiProfileConsent;
+  const canGenerate = hasDOB && hasGender && hasConsent;
+  const missing: string[] = [];
+  if (!hasDOB) missing.push('Ngày sinh');
+  if (!hasGender) missing.push('Giới tính');
+  if (!hasConsent) missing.push('Consent');
 
   if (generatingProfile) {
     return (
       <div className="pcard-loading">
         <div className="pl-spin"/>
         <div className="pl-txt">Đang tổng hợp...</div>
-        <div className="pl-sub">BaZi · Numerology · Nine Star Ki</div>
+        <div className="pl-sub">BaZi · Tử Vi · Numerology · Nine Star Ki · Western Astrology</div>
+        <div style={{fontSize:10,color:'var(--t3)',marginTop:6}}>Có thể mất 10-15s</div>
       </div>
     );
   }
   if (!pc) {
-    if (hasDOB) {
+    if (canGenerate) {
       return (
         <div style={{padding:24,textAlign:'center'}}>
           <div style={{fontSize:36,marginBottom:10}}>✨</div>
           <div style={{fontSize:15,fontWeight:800,marginBottom:7}}>Sẵn sàng tạo Profile</div>
-          <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.6,maxWidth:220,margin:'0 auto 16px'}}>BaZi + Numerology + Nine Star Ki từ ngày sinh → hướng dẫn tư vấn cá nhân hóa</div>
-          <div style={{fontSize:10,fontFamily:'var(--mono)',background:'var(--stone)',padding:'6px 12px',borderRadius:7,color:'var(--t2)',marginBottom:16,display:'inline-block'}}>✅ {t.profile?.dob} {t.profile?.birthTime?'· '+t.profile.birthTime:''}</div><br/>
+          <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.6,maxWidth:240,margin:'0 auto 16px'}}>5 hệ thống (BaZi, Tử Vi, Nine Star Ki, Numerology, Western Astrology) → briefing sales cá nhân hóa</div>
+          <div style={{fontSize:10,fontFamily:'var(--mono)',background:'var(--stone)',padding:'6px 12px',borderRadius:7,color:'var(--t2)',marginBottom:16,display:'inline-block'}}>
+            ✅ {t.profile?.dob} {t.profile?.birthTime?'· '+t.profile.birthTime:''} · {t.profile?.gender==='male'?'♂ Nam':'♀ Nữ'} · 🛡️ Consent
+          </div><br/>
           <button className="btn btn-ghost" style={{borderColor:'var(--purple-b)',color:'var(--purple)'}} onClick={()=>onGenProfile(t.id)}>✨ Tạo Personal Profile</button>
         </div>
       );
@@ -2028,8 +2161,8 @@ function ProfileCardView({t, profileCards, generatingProfile, onGenProfile, onSw
       <div className="pcard-empty">
         <div className="pe-icon">🧩</div>
         <div className="pe-title">Chưa đủ thông tin</div>
-        <div className="pe-sub">Điền ngày sinh trong tab "Hồ Sơ" trước.</div>
-        <div className="pe-req">Cần: Ngày sinh · Tốt hơn: + Giờ sinh</div>
+        <div className="pe-sub">Cần điền trước khi tạo profile:</div>
+        <div className="pe-req">{missing.join(' · ')}</div>
         <button className="btn btn-ghost btn-sm" onClick={onSwitchToInfo}>← Điền hồ sơ</button>
       </div>
     );
@@ -2043,10 +2176,11 @@ function ProfileCardView({t, profileCards, generatingProfile, onGenProfile, onSw
         <div className="pch-sub">{t.profile?.dob||''} {t.profile?.birthTime?'· '+t.profile.birthTime:''}</div>
         <div className="pch-quote">{pc.q}</div>
         <div className="pch-chips">
-          <div className="pch-chip"><em>{pc.dm}</em></div>
-          <div className="pch-chip">Life {pc.lp}</div>
-          <div className="pch-chip">{pc.nk}</div>
-          <div className="pch-chip">Gua {pc.gua}</div>
+          <div className="pch-chip" title="Bát tự — Nhật Chủ"><em>八 {pc.dm}</em></div>
+          <div className="pch-chip" title="Thần số học — Life Path">🔢 {pc.lp}</div>
+          <div className="pch-chip" title="Nine Star Ki — Year Star">✨ {pc.nk}</div>
+          <div className="pch-chip" title="Cung hoàng đạo — Sun sign">♈ {pc.sun}</div>
+          <div className="pch-chip" title="Tử vi — Mệnh Cục">🀄 {pc.menh}</div>
         </div>
       </div>
       <div className="pi-blk">

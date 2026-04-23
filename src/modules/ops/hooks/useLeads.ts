@@ -223,8 +223,14 @@ export function useDeleteNote() {
 export function useGeneratePersonalProfile() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ leadId }: { leadId: string }) =>
-      api.post<PersonalProfile>(`/ops/leads/${leadId}/personal-profile`),
+    // `force=true` khi consultant bấm "↻ Cập nhật Profile" trên banner dirty —
+    // ép vault regenerate master + facet kể cả khi birth data không đổi
+    // (để narrative bắt các field mới như job/goal/name).
+    mutationFn: ({ leadId, force }: { leadId: string; force?: boolean }) =>
+      api.post<PersonalProfile>(
+        `/ops/leads/${leadId}/personal-profile`,
+        force ? { force: true } : undefined,
+      ),
     onSuccess: (profile, vars) => {
       qc.setQueryData(['ops', 'leads', vars.leadId, 'personal-profile'], profile)
       qc.invalidateQueries({ queryKey: ['ops', 'leads', vars.leadId, 'actions'] })

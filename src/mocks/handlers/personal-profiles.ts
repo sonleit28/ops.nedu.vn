@@ -40,6 +40,14 @@ export const personalProfileHandlers = [
         { status: 422 },
       )
     }
+    // Mirror contract với backend live (vault yêu cầu gender cho BaZi/Tử Vi/Nine Star Ki).
+    const gender = lead.metadata?.gender
+    if (gender !== 'male' && gender !== 'female') {
+      return HttpResponse.json(
+        { statusCode: 422, message: 'Cần thu thập giới tính trước khi tạo Personal Profile', error: 'Unprocessable Entity', code: 'MISSING_GENDER', details: { lead_id: lead.id } },
+        { status: 422 },
+      )
+    }
     const existingIdx = MOCK_PERSONAL_PROFILES.findIndex(p => p.lead_id === params.id)
     if (existingIdx >= 0) MOCK_PERSONAL_PROFILES.splice(existingIdx, 1)
     const now = new Date().toISOString()
@@ -51,6 +59,11 @@ export const personalProfileHandlers = [
       real_need: 'Cần lộ trình rõ ràng.',
       timing_2026: 'Năm phù hợp để bắt đầu.',
       opening_suggestion: `Chào ${lead.full_name}, đây là thời điểm tốt để bạn bắt đầu hành trình của mình.`,
+      life_path_number: 7,
+      nine_star: '4 Mộc',
+      nhut_chu: 'Canh Kim',
+      sun_sign: 'Ma Kết',
+      menh_cuc: 'Kim Tứ Cục',
       created_at: now, updated_at: now,
     }
     MOCK_PERSONAL_PROFILES.push(generated)
