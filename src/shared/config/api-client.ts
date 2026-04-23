@@ -53,7 +53,12 @@ async function doFetch(method: string, path: string, body: unknown, token: strin
   })
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T | undefined> {
+async function request<T>(
+  method: string,
+  path: string,
+  body: unknown,
+  unwrapData: boolean,
+): Promise<T | undefined> {
   let access = tokenStorage.getAccess()
   let res = await doFetch(method, path, body, access)
 
@@ -84,13 +89,20 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     )
   }
 
-  return (json?.data ?? json) as T
+  // BE's TransformInterceptor wrap mọi response thành { data: T }.
+  // Mặc định unwrap để caller nhận T trực tiếp (list, detail, KPI...).
+  // Endpoint cần đọc meta ngoài data (paginated, catch-up) → dùng api.getRaw.
+  if (unwrapData) return (json?.data ?? json) as T
+  return json as T
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>('GET', path),
-  post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
-  patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
-  put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
-  delete: (path: string) => request<void>('DELETE', path),
+  get: <T>(path: string) => request<T>('GET', path, undefined, true),
+  post: <T>(path: string, body?: unknown) => request<T>('POST', path, body, true),
+  patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body, true),
+  put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body, true),
+  delete: (path: string) => request<void>('DELETE', path, undefined, true),
+  // Raw: giữ nguyên JSON body (không unwrap .data). Dùng cho endpoint trả
+  // { data, meta, ... } mà caller cần cả meta.
+  getRaw: <T>(path: string) => request<T>('GET', path, undefined, false),
 }
