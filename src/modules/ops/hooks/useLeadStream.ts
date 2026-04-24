@@ -6,17 +6,18 @@ import { useNotificationStore } from '@shared/stores/notification-store'
 import {
   OPS_SCOPE,
   OPS_EVENT_TYPES,
+  type NotificationEvent,
+  type OpsCoDealCreatedEvent,
   type OpsLeadIngestedEvent,
 } from '@shared/types/notifications'
 
 // Live SSE stream cho ops:
 //   - Mở GET /notifications/stream?scope=ops với Bearer token (fetch stream).
-//   - Khi có event lead.ingested:
+//   - Với mỗi event:
 //       (a) push toast góc phải dưới
 //       (b) invalidate TanStack queries liên quan → list/dashboard tự refetch
 //       (c) PATCH /notifications/mark-seen { scope, up_to: occurredAt }
-//           → consultant online nhận toast rồi sẽ KHÔNG thấy lead đó trong
-//             unseen khi mở app lần sau (fix "live toast ≠ seen" gap).
+//           → consultant online nhận toast rồi sẽ KHÔNG thấy lại khi mở app sau.
 //   - Cleanup qua AbortController khi component unmount.
 export function useLeadStream(enabled: boolean) {
   const qc = useQueryClient()
@@ -29,25 +30,51 @@ export function useLeadStream(enabled: boolean) {
     subscribeSse(`/notifications/stream?scope=${OPS_SCOPE}`, {
       signal: ctrl.signal,
       onMessage: (msg) => {
-        if (msg.type !== OPS_EVENT_TYPES.LEAD_INGESTED) return
-        let event: OpsLeadIngestedEvent
+        let event: NotificationEvent
         try {
-          event = JSON.parse(msg.data) as OpsLeadIngestedEvent
+          event = JSON.parse(msg.data) as NotificationEvent
         } catch {
           return
         }
 
-        push({
-          icon: '📢',
-          text: 'Lead mới',
-          sub: `${event.payload.source}${event.payload.source_channel ? ' · ' + event.payload.source_channel : ''}`,
-        })
+        let matched = true
+        switch (msg.type) {
+          case OPS_EVENT_TYPES.LEAD_INGESTED: {
+            const e = event as unknown as OpsLeadIngestedEvent
+            push({
+              icon: '📢',
+              text: 'Lead mới',
+              sub: `${e.payload.source}${e.payload.source_channel ? ' · ' + e.payload.source_channel : ''}`,
+            })
+            break
+          }
+          case OPS_EVENT_TYPES.LEAD_TRANSFERRED: {
+            push({
+              icon: '🔀',
+              text: 'Lead được chuyển cho bạn',
+              sub: 'Xem chi tiết trong danh sách lead',
+            })
+            break
+          }
+          case OPS_EVENT_TYPES.CO_DEAL_CREATED: {
+            const e = event as unknown as OpsCoDealCreatedEvent
+            push({
+              icon: '🤝',
+              text: 'Bạn vừa được co-deal',
+              sub: `Tỉ lệ ${e.payload.initiator_ratio}% / ${e.payload.co_dealer_ratio}%`,
+            })
+            break
+          }
+          default:
+            matched = false
+        }
+        if (!matched) return
 
         qc.invalidateQueries({ queryKey: ['ops', 'leads'] })
         qc.invalidateQueries({ queryKey: ['ops', 'dashboard'] })
 
         // Bump bookmark tới occurredAt (không phải NOW) để tránh race với
-        // ingest xảy ra ngay sau. Fire-and-forget: lỗi không block UI.
+        // event xảy ra ngay sau. Fire-and-forget: lỗi không block UI.
         api
           .patch('/notifications/mark-seen', {
             scope: OPS_SCOPE,
@@ -59,8 +86,6 @@ export function useLeadStream(enabled: boolean) {
       },
       onError: () => {
         // TODO: fallback polling refetchInterval 15s nếu SSE disconnect > 10s.
-        // Phase hiện tại — 1 user online ops, TanStack Query staleTime ngắn đã
-        // đủ. Ghi tech debt.
       },
     }).catch(() => {
       /* swallow AbortError + network */
