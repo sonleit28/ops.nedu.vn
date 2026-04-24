@@ -511,7 +511,7 @@ export default function App() {
   }
 
   // Stage 5 = Enrolled — không cho back về Intent (rule: enrolled là quyết định
-  // dứt khoát, đã tạo enrollment + email kích hoạt; muốn revert phải mở case riêng).
+  // dứt khoát, đã ghi nhận thanh toán; muốn revert phải mở case riêng).
   function canGoBack(stage: number) {
     return stage > 1 && stage !== 5;
   }
@@ -560,12 +560,23 @@ export default function App() {
 
   // ─── ENROLL ────────────────────────────────────────
   function openEnroll(id: number) {
+    const t = getTodo(id);
+    if (!t) return;
+    if (!t.email || !t.email.trim()) {
+      showToast('⚠️', 'Lead chưa có email', 'Cập nhật email trước khi Enrolled');
+      return;
+    }
     setEnrollId(id); setPayMethod('transfer'); setPayCourse('lcm');
     setPayAmount('70000000'); setPayTxn('');
     setShowEnroll(true);
   }
   function confirmEnroll() {
     const t = getTodo(enrollId!); if (!t) return;
+    if (!t.email || !t.email.trim()) {
+      setShowEnroll(false);
+      showToast('⚠️', 'Lead chưa có email', 'Cập nhật email trước khi Enrolled');
+      return;
+    }
     const courseMap: Record<string,string> = {lcm:'🌱 Là Chính Mình',adult:'📚 Adult Learning Core',exec:'🎯 Executive Track',short:'⚡ Short Course',corp:'🏢 Corporate'};
     const courseName = courseMap[payCourse]?.split('·')[0]?.trim() || 'Là Chính Mình';
     const amount = parseInt(payAmount) || 70000000;
@@ -573,9 +584,8 @@ export default function App() {
     const uuid = UUID_BY_NUMERIC_ID[t.id];
     const programSlug = COURSE_TO_PROGRAM[payCourse] ?? 'la-chinh-minh';
     const paymentMethod = PAY_METHOD_MAP[payMethod] ?? 'bank_transfer';
-    const prevSnapshot = t;
 
-    const applyOptimistic = () => {
+    const applySuccess = () => {
       updateTodo(t.id, old => ({
         ...old, stage:5, priority:'week', action:'CHECK-IN', badge:'✅ Enrolled', badgeColor:'green',
         desc:'Theo dõi trải nghiệm tuần đầu.',
@@ -588,22 +598,18 @@ export default function App() {
       setTimeout(() => { setWinData({name:t.name, course:courseName, amount}); setShowWin(true); }, 400);
     };
 
-    const rollback = (msg: string) => {
-      updateTodo(t.id, () => prevSnapshot);
-      setTeamMembers(prev => prev.map(m => m.isMe ? {...m, enrolled:Math.max(0,m.enrolled-1), revenue:Math.max(0,m.revenue-amount)} : m));
-      setShowWin(false);
-      alert('Enrollment thất bại: ' + msg);
+    const showError = (msg: string) => {
+      showToast('❌', 'Enrollment thất bại', msg);
     };
 
     setShowEnroll(false);
 
     if (!uuid) {
       // Lead local (INIT_TODOS fallback), không có UUID backend — chỉ local.
-      applyOptimistic();
+      applySuccess();
       return;
     }
 
-    applyOptimistic();
     enrollM.mutate(
       {
         leadId: uuid,
@@ -613,14 +619,17 @@ export default function App() {
         transaction_ref: payTxn.trim() || undefined,
       },
       {
+        onSuccess: () => {
+          applySuccess();
+        },
         onError: (err) => {
           const e = err as { message?: string; code?: string };
           if (e.code === 'LEAD_EMAIL_REQUIRED_FOR_ENROLLMENT') {
-            rollback('Lead chưa có email — cập nhật email trước khi Enrolled.');
+            showError('Lead chưa có email — cập nhật email trước khi Enrolled.');
           } else if (e.code === 'LEAD_ALREADY_ENROLLED') {
-            rollback('Lead đã enrolled trước đó.');
+            showError('Lead đã enrolled trước đó.');
           } else {
-            rollback(e.message ?? 'Unknown error');
+            showError(e.message ?? 'Unknown error');
           }
         },
       },
@@ -1351,15 +1360,21 @@ export default function App() {
       {showEnroll && enrollId && (() => {
         const et = getTodo(enrollId);
         if (!et) return null;
+        const missingEmail = !et.email || !et.email.trim();
         return (
           <div className="enroll-ov" onClick={e=>{if(e.target===e.currentTarget)setShowEnroll(false)}}>
             <div className="enroll-m">
               <div className="em-icon">🎉</div>
               <div className="em-title">Xác nhận Enrolled!</div>
-              <div className="em-sub">Hệ thống sẽ tự động tạo tài khoản và gửi email kích hoạt.</div>
+              <div className="em-sub">Đánh dấu lead đã thanh toán để consultant và hệ thống theo dõi.</div>
+              {missingEmail && (
+                <div style={{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.35)',color:'var(--red,#dc2626)',padding:'10px 12px',borderRadius:8,fontSize:13,marginBottom:12}}>
+                  ⚠️ Lead chưa có email — cập nhật email trước khi Enrolled.
+                </div>
+              )}
               <div className="em-info">
                 <div className="er-row"><span className="er-key">Học viên</span><span className="er-val">{et.name}</span></div>
-                <div className="er-row"><span className="er-key">Email</span><span className="er-val">{et.email}</span></div>
+                <div className="er-row"><span className="er-key">Email</span><span className="er-val" style={missingEmail?{color:'var(--red,#dc2626)'}:undefined}>{et.email || '— chưa có —'}</span></div>
                 <div className="er-row"><span className="er-key">Chương trình</span><span className="er-val">Adult Learning</span></div>
                 <div className="er-row"><span className="er-key">Học phí</span><span className="er-val" style={{color:'var(--green)'}}>70,000,000 ₫</span></div>
               </div>
@@ -1394,7 +1409,7 @@ export default function App() {
               </div>
               <div className="em-btns">
                 <button className="btn btn-ghost" onClick={()=>setShowEnroll(false)}>Hủy</button>
-                <button className="btn btn-primary" style={{flex:2,justifyContent:'center'}} onClick={confirmEnroll}>✅ Xác nhận & Tạo tài khoản</button>
+                <button className="btn btn-primary" style={{flex:2,justifyContent:'center',opacity:missingEmail?0.5:1,cursor:missingEmail?'not-allowed':'pointer'}} disabled={missingEmail} onClick={confirmEnroll}>✅ Xác nhận đã thanh toán</button>
               </div>
             </div>
           </div>
