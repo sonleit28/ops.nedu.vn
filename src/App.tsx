@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useLeads, useAdvanceStage, useCreateEnrollment, useCreateNote, useUpdateNote, useDeleteNote, useLeadActions, useLeadNotes, useUpdateLead, useTransferLead, useCreateCoDeal, usePersonalProfile, useGeneratePersonalProfile } from '@modules/ops/hooks/useLeads';
+import { useLeads, useAdvanceStage, useCreateEnrollment, useCreateNote, useUpdateNote, useDeleteNote, useLeadActions, useLeadNotes, useUpdateLead, useTransferLead, useCreateCoDeal, usePersonalProfile, useGeneratePersonalProfile, useKpiTeam } from '@modules/ops/hooks/useLeads';
+import { useQueryClient } from '@tanstack/react-query';
+import type { KpiTeamMember } from '@modules/ops/types';
 import { useLeadStream } from '@modules/ops/hooks/useLeadStream';
 import { useCatchUpNotifications } from '@modules/ops/hooks/useCatchUpNotifications';
 import { useAuthStore } from '@modules/auth/stores/useAuthStore';
@@ -310,14 +312,39 @@ const INIT_TODOS: Todo[] = [
    ],notes:[{text:'Chị ĐÃ quyết định — KHÔNG tư vấn thêm. Chỉ nhắn hỏi thăm nhẹ nhàng, tránh tạo áp lực. Đợi 15/4.',date:'04/04/2026',who:'Linh Nguyễn'}],done:false},
 ];
 
-const TEAM_MEMBERS = [
-  {id:'linh',name:'Linh Nguyễn',role:'consultant',color:'#059669',enrolled:2,target:5,revenue:140000000,isMe:true},
-  {id:'huong',name:'Hương Nguyễn',role:'consultant',color:'#3B82F6',enrolled:4,target:5,revenue:280000000},
-  {id:'lan',name:'Lan Phạm',role:'consultant',color:'#EC4899',enrolled:3,target:5,revenue:210000000},
-  {id:'duc',name:'Đức Võ',role:'consultant',color:'#F59E0B',enrolled:1,target:5,revenue:70000000},
-  {id:'minh-leader',name:'Minh Trần',role:'leader',color:'#7C3AED',enrolled:1,target:3,revenue:70000000},
-  {id:'hoa-leader',name:'Hoa Lê',role:'leader',color:'#D97706',enrolled:2,target:3,revenue:140000000},
-];
+// Palette dùng cho avatar trong Team KPI leaderboard. Map deterministic theo
+// hash của user_id để mỗi member có 1 màu cố định qua các lần render.
+const TEAM_AVATAR_PALETTE = ['#3B82F6','#EC4899','#059669','#F59E0B','#D97706','#7C3AED','#0EA5E9','#EF4444'];
+function pickAvatarColor(userId: string): string {
+  let h = 0;
+  for (let i = 0; i < userId.length; i++) h = (h * 31 + userId.charCodeAt(i)) | 0;
+  return TEAM_AVATAR_PALETTE[Math.abs(h) % TEAM_AVATAR_PALETTE.length];
+}
+
+interface DisplayTeamMember {
+  id: string;
+  name: string;
+  role: 'consultant' | 'leader';
+  color: string;
+  enrolled: number;
+  target: number;
+  revenue: number;
+  isMe: boolean;
+}
+
+function toDisplayMembers(members: KpiTeamMember[] | undefined): DisplayTeamMember[] {
+  if (!members) return [];
+  return members.map(m => ({
+    id: m.user_id,
+    name: m.full_name,
+    role: m.role,
+    color: pickAvatarColor(m.user_id),
+    enrolled: m.enrolled_count,
+    target: m.target,
+    revenue: m.revenue_vnd,
+    isMe: m.is_me,
+  }));
+}
 
 // ─── HELPERS ─────────────────────────────────────────
 function nowStr() {
@@ -463,8 +490,13 @@ export default function App() {
   const [editingNotes, setEditingNotes] = useState<Record<string,string>>({});
   // Confetti
   const [confetti, setConfetti] = useState<{id:number,left:number,color:string,size:number,dur:number,delay:number,round:boolean}[]>([]);
-  // Team data (for KPI enrolled updates)
-  const [teamMembers, setTeamMembers] = useState(TEAM_MEMBERS.map(m => ({...m})));
+  // E-08 — Team KPI. Chỉ fetch khi panel mở (giữ panel đóng = ko tốn request).
+  const qc = useQueryClient();
+  const kpiTeamQuery = useKpiTeam(undefined, showKPI);
+  const teamMembers = useMemo(
+    () => toDisplayMembers(kpiTeamQuery.data?.members),
+    [kpiTeamQuery.data],
+  );
 
   const showToast = useCallback((icon: string, text: string, sub: string) => {
     pushToast({ icon, text, sub });
@@ -592,7 +624,8 @@ export default function App() {
         payment:{amount, course:courseName, method:pmLabels[payMethod]||'Chuyển khoản', txn:payTxn, date:nowStr()},
         timeline:[{icon:'✅',action:`ENROLLED — ${courseName}`,date:nowStr(),who:'Linh Nguyễn',note:`${pmLabels[payMethod]||'Chuyển khoản'} · ${amount.toLocaleString('vi-VN')}₫${payTxn?' · Mã: '+payTxn:''}`}, ...old.timeline]
       }));
-      setTeamMembers(prev => prev.map(m => m.isMe ? {...m, enrolled:m.enrolled+1, revenue:m.revenue+amount} : m));
+      // KPI sẽ tự refetch lần kế khi panel mở; nếu đang mở, invalidate luôn.
+      qc.invalidateQueries({ queryKey: ['ops', 'kpi', 'team'] });
       launchConfetti();
       setActiveId(t.id);
       setTimeout(() => { setWinData({name:t.name, course:courseName, amount}); setShowWin(true); }, 400);
@@ -1107,10 +1140,15 @@ export default function App() {
   const currentLayer = activeTodo ? getFunnelLayer(activeTodo.stage) : null;
 
   // ─── KPI COMPUTED ─────────────────────────────────
-  const totalTarget = teamMembers.reduce((s,m)=>s+m.target,0);
-  const totalEnrolled = teamMembers.reduce((s,m)=>s+m.enrolled,0);
-  const totalRevenue = teamMembers.reduce((s,m)=>s+m.revenue,0);
-  const kpiPct = Math.round((totalEnrolled/totalTarget)*100);
+  // Số liệu summary lấy thẳng từ API (đã tính ở BE để mọi client thống nhất);
+  // chỉ fallback compute từ members nếu BE không trả summary.
+  const kpiSummary = kpiTeamQuery.data?.summary;
+  const totalTarget = kpiSummary?.monthly_target ?? teamMembers.reduce((s,m)=>s+m.target,0);
+  const totalEnrolled = kpiSummary?.enrolled_this_month ?? teamMembers.reduce((s,m)=>s+m.enrolled,0);
+  const totalRevenue = kpiSummary?.monthly_revenue_vnd ?? teamMembers.reduce((s,m)=>s+m.revenue,0);
+  const totalActiveLeads = kpiSummary?.active_leads ?? todos.filter(t=>!t.done).length;
+  const conversionRate = kpiSummary?.conversion_rate ?? Math.round((totalEnrolled/Math.max(todos.length,1))*100);
+  const kpiPct = totalTarget > 0 ? Math.round((totalEnrolled/totalTarget)*100) : 0;
   const sortedTeam = [...teamMembers].sort((a,b)=>b.enrolled-a.enrolled);
 
   // ─── RENDER ───────────────────────────────────────
@@ -1482,20 +1520,33 @@ export default function App() {
       )}
 
       {/* KPI PANEL */}
-      {showKPI && (
+      {showKPI && (() => {
+        const monthIso = kpiTeamQuery.data?.month ?? '2026-04';
+        const [yyyy, mm] = monthIso.split('-');
+        const monthLabel = `Tháng ${parseInt(mm,10)}/${yyyy}`;
+        return (
         <div className="kpi-ov" onClick={e=>{if(e.target===e.currentTarget)setShowKPI(false)}}>
           <div className="kpi-panel">
             <div className="kpi-hdr">
               <div>
-                <div className="kpi-hdr-title">📊 Team KPI · Tháng 4/2026</div>
+                <div className="kpi-hdr-title">📊 Team KPI · {monthLabel}</div>
                 <div className="kpi-hdr-sub">Nedu Sales Team · Adult Learning Program</div>
               </div>
               <button className="kpi-close" onClick={()=>setShowKPI(false)}>✕</button>
             </div>
             <div className="kpi-body">
+              {kpiTeamQuery.isLoading && (
+                <div style={{padding:'40px 0',textAlign:'center',color:'var(--t3)',fontSize:13}}>Đang tải KPI…</div>
+              )}
+              {kpiTeamQuery.isError && !kpiTeamQuery.isLoading && (
+                <div style={{padding:'14px 16px',marginBottom:16,background:'var(--amber-s)',border:'1.5px solid var(--amber-b)',borderRadius:'var(--rad)',color:'var(--amber)',fontSize:13}}>
+                  Không tải được KPI. <button onClick={()=>kpiTeamQuery.refetch()} style={{textDecoration:'underline',color:'var(--amber)',background:'none',border:0,cursor:'pointer'}}>Thử lại</button>
+                </div>
+              )}
+              {!kpiTeamQuery.isLoading && !kpiTeamQuery.isError && (<>
               <div className="kpi-month-bar">
                 <div className="kmb-row">
-                  <span className="kmb-label">🎯 Mục tiêu tháng 4 — Toàn team</span>
+                  <span className="kmb-label">🎯 Mục tiêu {monthLabel.toLowerCase()} — Toàn team</span>
                   <span className="kmb-pct">{kpiPct}%</span>
                 </div>
                 <div className="kmb-track"><div className="kmb-fill" style={{width:`${kpiPct}%`}}/></div>
@@ -1507,8 +1558,8 @@ export default function App() {
               <div className="kpi-stats-row">
                 <div className="kpi-stat"><div className="ks-n" style={{color:'var(--nedu)'}}>{totalEnrolled}</div><div className="ks-l">Enrolled tháng này</div></div>
                 <div className="kpi-stat"><div className="ks-n" style={{color:'var(--amber)'}}>{(totalRevenue/1000000).toFixed(0)}M</div><div className="ks-l">Doanh thu (₫)</div></div>
-                <div className="kpi-stat"><div className="ks-n" style={{color:'var(--blue)'}}>{todos.filter(t=>!t.done).length}</div><div className="ks-l">Leads đang theo</div></div>
-                <div className="kpi-stat"><div className="ks-n" style={{color:'var(--purple)'}}>{Math.round((totalEnrolled/Math.max(todos.length,1))*100)}%</div><div className="ks-l">Tỷ lệ convert</div></div>
+                <div className="kpi-stat"><div className="ks-n" style={{color:'var(--blue)'}}>{totalActiveLeads}</div><div className="ks-l">Leads đang theo</div></div>
+                <div className="kpi-stat"><div className="ks-n" style={{color:'var(--purple)'}}>{Math.round(conversionRate)}%</div><div className="ks-l">Tỷ lệ convert</div></div>
               </div>
               <div style={{fontSize:11,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--t3)',fontFamily:'var(--mono)',marginBottom:10}}>🏆 Bảng xếp hạng</div>
               <div className="kpi-board">
@@ -1545,10 +1596,12 @@ export default function App() {
                   ))}
                 </div>
               )}
+              </>)}
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* WIN CELEBRATION */}
       {showWin && (
