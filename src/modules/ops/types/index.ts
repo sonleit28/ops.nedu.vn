@@ -147,3 +147,29 @@ export interface KpiData {
     badges: string[]
   }>
 }
+
+// E-08 — Team leaderboard (GET /api/ops/kpi/team).
+export interface KpiTeamMember {
+  user_id: string
+  full_name: string
+  role: 'consultant' | 'leader'
+  enrolled_count: number
+  target: number
+  revenue_vnd: number
+  active_leads: number
+  load_pct: number
+  needs_support: boolean
+  is_me: boolean
+}
+
+export interface KpiTeamData {
+  month: string
+  summary: {
+    enrolled_this_month: number
+    monthly_target: number
+    monthly_revenue_vnd: number
+    active_leads: number
+    conversion_rate: number
+  }
+  members: KpiTeamMember[]
+}
