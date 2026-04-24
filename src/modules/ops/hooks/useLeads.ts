@@ -10,6 +10,7 @@ import type {
   CoDeal,
   PersonalProfile,
   KpiData,
+  KpiTeamData,
   ProgramSlug,
   PaymentMethod,
 } from '@modules/ops/types'
@@ -80,6 +81,18 @@ export function useKpi() {
     queryKey: ['ops', 'kpi'],
     queryFn: () => api.get<KpiData>('/ops/kpi'),
     retry: false,
+  })
+}
+
+// E-08 — Team leaderboard. month=YYYY-MM (default: tháng hiện tại trên BE).
+export function useKpiTeam(month?: string, enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: ['ops', 'kpi', 'team', month ?? 'current'],
+    queryFn: () =>
+      api.get<KpiTeamData>(`/ops/kpi/team${month ? `?month=${month}` : ''}`),
+    retry: false,
+    staleTime: 60_000,
   })
 }
 
