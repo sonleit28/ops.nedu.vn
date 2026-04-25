@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw'
 import { getCurrentMockUserId, getCurrentMockPerson, unauthorized, forbidden, notFound } from '../config'
 import { MOCK_LEADS } from '../data/leads'
 import { MOCK_ENROLLMENTS } from '../data/enrollments'
-import type { Enrollment, ProgramSlug } from '@modules/ops/types'
+import type { Enrollment } from '@modules/ops/types'
 
 export const enrollmentHandlers = [
   http.post('*/api/ops/leads/:id/enrollments', async ({ params, request }) => {
@@ -51,10 +51,8 @@ export const enrollmentHandlers = [
 
     // Disabled: enrollment.program_slug = legacy enum, interested_courses = course.code mới.
     // Không cùng namespace → so sánh không có nghĩa. Sẽ bật lại khi enrollments migrate.
-    const isOutsideInterest = false
-
     return HttpResponse.json(
-      { data: { enrollment, lead: MOCK_LEADS[leadIdx] }, ...(isOutsideInterest && { warning: `Program '${body.program_slug}' không có trong danh sách khóa lead quan tâm ban đầu` }) },
+      { data: { enrollment, lead: MOCK_LEADS[leadIdx] } },
       { status: 201 },
     )
   }),

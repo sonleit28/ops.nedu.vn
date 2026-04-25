@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw'
 import { getCurrentMockUserId, getCurrentMockPerson, unauthorized, forbidden, notFound } from '../config'
 import { MOCK_LEADS, getLeadsByPersonId } from '../data/leads'
 import { MOCK_PERSONS } from '../data/persons'
-import type { Lead, LeadSource, PipelineStage, ProgramSlug } from '@modules/ops/types'
+import type { Lead, LeadSource, PipelineStage } from '@modules/ops/types'
 
 const STAGE_ORDER: PipelineStage[] = ['awareness','interest','consideration','intent','enrolled','retention']
 
