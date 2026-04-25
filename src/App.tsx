@@ -8,6 +8,13 @@ import { useAuthStore } from '@modules/auth/stores/useAuthStore';
 import { useNotificationStore } from '@shared/stores/notification-store';
 import type { Lead as BackendLead, LeadTemperature, PipelineStage, ProgramSlug, PaymentMethod, PipelineAction, PersonalProfile as BackendPersonalProfile } from '@modules/ops/types';
 
+// FE course key → BE course.code (cho leads.interested_courses[]).
+// Ngược chiều của COURSE_CODE_TO_UI bên dưới.
+const UI_COURSE_TO_CODE: Record<string, string> = {
+  lcm: 'LCM', adult: 'TKBT', meta: 'META', exec: 'COACHING',
+  short: 'WS-JOURNAL', corp: 'CORPORATE',
+};
+// Legacy mapping cho enrollment (program_slug enum cũ — chưa migrate).
 const COURSE_TO_PROGRAM: Record<string, ProgramSlug> = {
   lcm: 'la-chinh-minh', adult: 'adult-learning', exec: 'executive',
   short: 'short-course', corp: 'corporate',
@@ -174,9 +181,15 @@ const STAGE_TO_NUM: Record<PipelineStage, number> = {
   awareness: 1, interest: 2, consideration: 3, intent: 4, enrolled: 5, retention: 6,
 };
 
-const PROGRAM_TO_COURSE: Record<string, string> = {
-  'la-chinh-minh': 'lcm', 'adult-learning': 'adult',
-  'executive': 'exec', 'short-course': 'short', 'corporate': 'corp',
+// Map course.code (BE) → FE course key dùng cho UI badge.
+// Source: courses table seed (xem nedu-backend/src/db/migrations/0008_courses_catalog.sql).
+const COURSE_CODE_TO_UI: Record<string, string> = {
+  LCM: 'lcm',
+  TKBT: 'adult',
+  META: 'meta',
+  COACHING: 'exec',
+  'WS-JOURNAL': 'short',
+  CORPORATE: 'corp',
 };
 
 const STAGE_COLOR: Record<number, string> = {
@@ -214,7 +227,9 @@ function leadToTodo(lead: BackendLead): Todo {
     phone: lead.phone,
     email: lead.email ?? '',
     sourceType: isMarketing ? 'marketing' : 'inbound',
-    sourceCh: isMarketing ? 'Marketing campaign' : 'nedu.vn/test',
+    // Đọc source_channel thật từ BE (vd: "nedu.vn/consultation-form", "nedu.vn/test", "fb-ads-T4").
+    // Fallback theo source khi BE chưa cấp channel cụ thể.
+    sourceCh: lead.source_channel ?? (isMarketing ? 'Marketing campaign' : 'inbound'),
     color: STAGE_COLOR[stage] ?? '#8B5CF6',
     days,
     testScore: lead.test_score ?? 0,
@@ -228,7 +243,7 @@ function leadToTodo(lead: BackendLead): Todo {
       pain: lead.main_concern ?? '',
       gender: lead.metadata?.gender as ('male'|'female'|undefined),
     },
-    courses: lead.interested_programs.map(p => PROGRAM_TO_COURSE[p]).filter(Boolean),
+    courses: lead.interested_courses.map(c => COURSE_CODE_TO_UI[c]).filter(Boolean),
     timeline: [],
     notes: [],
     done: lead.stage === 'enrolled' || lead.stage === 'retention',
@@ -997,12 +1012,12 @@ export default function App() {
 
     const uuid = UUID_BY_NUMERIC_ID[tid];
     if (!uuid) return;
-    // Map course_id -> program_slug, skip n\u1ebfu kh\u00f4ng c\u00f3 mapping (vd course local)
-    const programs = nextCourses
-      .map(cid => COURSE_TO_PROGRAM[cid])
-      .filter((p): p is ProgramSlug => !!p);
+    // Map FE course key \u2192 BE course.code, skip n\u1ebfu kh\u00f4ng c\u00f3 mapping (vd course local).
+    const courseCodes = nextCourses
+      .map(cid => UI_COURSE_TO_CODE[cid])
+      .filter((c): c is string => !!c);
     updateLeadM.mutate(
-      { leadId: uuid, patch: { interested_programs: programs } },
+      { leadId: uuid, patch: { interested_courses: courseCodes } },
       {
         onError: (err) => {
           updateTodo(tid, old => ({ ...old, courses: prevCourses }));

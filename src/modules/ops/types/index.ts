@@ -28,6 +28,7 @@ export interface Lead {
   email?: string
   stage: PipelineStage
   source: LeadSource
+  source_channel?: string | null
   assigned_to_user_id: string
   assigned_to_full_name: string
   birth_date?: string
@@ -36,7 +37,8 @@ export interface Lead {
   goal?: string
   main_concern?: string
   test_score?: number
-  interested_programs: ProgramSlug[]
+  // BE column courses.code (vd: 'TKBT', 'LCM'). Free-form string vì BE soft-validate.
+  interested_courses: string[]
   sla_breached: boolean
   sla_breach_hours?: number
   is_returning: boolean

@@ -131,7 +131,7 @@ export const leadsHandlers = [
     if (secret !== 'dev-internal-secret') {
       return HttpResponse.json({ statusCode: 401, message: 'Invalid internal secret', error: 'Unauthorized' }, { status: 401 })
     }
-    const body = await request.json() as { full_name: string; phone: string; email?: string; source: LeadSource; test_score?: number; interested_programs?: ProgramSlug[] }
+    const body = await request.json() as { full_name: string; phone: string; email?: string; source: LeadSource; test_score?: number; interested_courses?: string[] }
     const errors: string[] = []
     if (!body.full_name) errors.push('full_name should not be empty')
     if (!body.phone) errors.push('phone should not be empty')
@@ -149,7 +149,7 @@ export const leadsHandlers = [
       full_name: body.full_name, phone: body.phone, email: body.email,
       stage: 'awareness', source: body.source,
       assigned_to_user_id: assigned.id, assigned_to_full_name: assigned.full_name,
-      interested_programs: body.interested_programs ?? [],
+      interested_courses: body.interested_courses ?? [],
       test_score: body.test_score,
       sla_breached: false, is_returning: false, has_co_deal: false, profile_completion_pct: 20,
       ai_profile_consent: false,

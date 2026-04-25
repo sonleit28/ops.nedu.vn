@@ -49,8 +49,9 @@ export const enrollmentHandlers = [
     MOCK_ENROLLMENTS.push(enrollment)
     MOCK_LEADS[leadIdx] = { ...MOCK_LEADS[leadIdx], stage: 'enrolled', updated_at: now }
 
-    const isOutsideInterest = MOCK_LEADS[leadIdx].interested_programs.length > 0
-      && !MOCK_LEADS[leadIdx].interested_programs.includes(body.program_slug as ProgramSlug)
+    // Disabled: enrollment.program_slug = legacy enum, interested_courses = course.code mới.
+    // Không cùng namespace → so sánh không có nghĩa. Sẽ bật lại khi enrollments migrate.
+    const isOutsideInterest = false
 
     return HttpResponse.json(
       { data: { enrollment, lead: MOCK_LEADS[leadIdx] }, ...(isOutsideInterest && { warning: `Program '${body.program_slug}' không có trong danh sách khóa lead quan tâm ban đầu` }) },
