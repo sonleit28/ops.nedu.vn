@@ -8,6 +8,7 @@ import { AuthCallbackPage } from '@modules/auth/pages/AuthCallbackPage'
 import App from '../App'
 import { useAuthStore } from '@modules/auth/stores/useAuthStore'
 import { queryClient } from '@shared/config/query-client'
+import { RouteTracker } from '@shared/analytics/RouteTracker'
 
 // App.tsx owns the full v6 UI (topbar + panels + modals) — giữ nguyên từ commit ab61c17.
 const AppLayout: React.FC = () => <App />
@@ -23,6 +24,7 @@ export const AppRouter: React.FC = () => {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AppInit>
+          <RouteTracker />
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/login" element={<LoginPage />} />

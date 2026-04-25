@@ -6,6 +6,15 @@ import {
   logout as authCentralLogout,
 } from '@shared/config/auth-central-client'
 import type { AuthUser } from '@shared/types/auth'
+import { analytics } from '@shared/analytics'
+
+function syncAnalytics(user: AuthUser | null) {
+  if (user) {
+    analytics.identify(user.person_id, { role: user.primary_role })
+  } else {
+    analytics.reset()
+  }
+}
 
 const IS_MOCK = import.meta.env.VITE_ENABLE_MOCKING === 'true'
 const MOCK_UID_KEY = 'mock_uid'
@@ -37,6 +46,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
   onAuthExpired(() => {
     tokenStorage.clear()
     set({ user: null })
+    syncAnalytics(null)
   })
 
   return {
@@ -53,6 +63,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         }
         const user = await fetchMe()
         set({ user, isLoading: false })
+        syncAnalytics(user)
         return
       }
 
@@ -63,6 +74,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       }
       const user = await fetchMe()
       set({ user, isLoading: false })
+      syncAnalytics(user)
     },
 
     loginWithGoogle: async () => {
@@ -70,6 +82,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         localStorage.setItem(MOCK_UID_KEY, DEFAULT_MOCK_ID)
         const user = await fetchMe()
         set({ user })
+        syncAnalytics(user)
         return
       }
       // Redirects the browser — state after this won't matter.
@@ -80,22 +93,26 @@ export const useAuthStore = create<AuthState>((set, get) => {
       localStorage.setItem(MOCK_UID_KEY, DEFAULT_MOCK_ID)
       const user = await fetchMe()
       set({ user })
+      syncAnalytics(user)
     },
 
     acceptTokens: async (tokens) => {
       tokenStorage.set(tokens)
       const user = await fetchMe()
       set({ user })
+      syncAnalytics(user)
     },
 
     logout: async () => {
       if (IS_MOCK) {
         localStorage.removeItem(MOCK_UID_KEY)
         set({ user: null })
+        syncAnalytics(null)
         return
       }
       await authCentralLogout()
       set({ user: null })
+      syncAnalytics(null)
       // reference get() to keep TS happy if unused (tree-shakeable)
       void get
     },

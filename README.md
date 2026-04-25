@@ -68,11 +68,34 @@ File [.env.example](.env.example):
 VITE_API_URL=http://localhost:8080          # URL của nedu-backend
 VITE_AUTH_CENTRAL_URL=http://localhost:4000 # URL của auth-central
 VITE_ENABLE_MOCKING=true                    # true ⇒ dùng MSW mock, false ⇒ gọi backend thật
+VITE_GA4_ID=                                # Google Analytics 4 Measurement ID (G-XXXX) — rỗng = disable
 ```
 
 - Khi `VITE_ENABLE_MOCKING=true`: **không cần** chạy backend/auth-central, MSW sẽ intercept request. Handler mock nằm ở `src/mocks/`.
 - Khi `VITE_ENABLE_MOCKING=false`: cần `nedu-backend` + `auth-central` chạy sẵn ở URL đã config.
 - Mọi biến phải prefix `VITE_` mới được expose ra client (rule của Vite).
+
+---
+
+## 5b. Analytics
+
+Module: [src/shared/analytics/](src/shared/analytics/). Public API: `analytics.init()`, `analytics.pageView()`, `analytics.identify()`, `analytics.reset()`, `analytics.track()`.
+
+Hiện tích hợp **GA4** qua `gtag.js`. Microsoft Clarity là stub no-op, sẽ được wire ở commit kế tiếp.
+
+**Khi nào tracking thực sự chạy:**
+- `import.meta.env.PROD === true` (production build), **VÀ**
+- `window.location.hostname === 'ops.nedu.vn'`, **VÀ**
+- `VITE_GA4_ID` có giá trị.
+
+Mọi case khác (dev, vercel preview, hostname custom) → no-op. Set env trong Vercel project settings cho `Production` environment, không cần ghi vào `.env` local.
+
+**Identify:** sau khi user login, store gọi `analytics.identify(person_id, { role })`. KHÔNG truyền email / full_name / phone.
+
+**Track event mới:**
+1. Thêm key + shape params vào `EventMap` trong [src/shared/analytics/events.ts](src/shared/analytics/events.ts).
+2. Ở consumer: `analytics.track('event_name', { ...params })`.
+3. Quy tắc params: snake_case, **chỉ ID — không PII**.
 
 ---
 
