@@ -69,6 +69,7 @@ VITE_API_URL=http://localhost:8080          # URL của nedu-backend
 VITE_AUTH_CENTRAL_URL=http://localhost:4000 # URL của auth-central
 VITE_ENABLE_MOCKING=true                    # true ⇒ dùng MSW mock, false ⇒ gọi backend thật
 VITE_GA4_ID=                                # Google Analytics 4 Measurement ID (G-XXXX) — rỗng = disable
+VITE_CLARITY_ID=                            # Microsoft Clarity Project ID — rỗng = disable
 ```
 
 - Khi `VITE_ENABLE_MOCKING=true`: **không cần** chạy backend/auth-central, MSW sẽ intercept request. Handler mock nằm ở `src/mocks/`.
@@ -77,16 +78,14 @@ VITE_GA4_ID=                                # Google Analytics 4 Measurement ID 
 
 ---
 
-## 5b. Analytics
+## 5b. Analytics (GA4 + Microsoft Clarity)
 
 Module: [src/shared/analytics/](src/shared/analytics/). Public API: `analytics.init()`, `analytics.pageView()`, `analytics.identify()`, `analytics.reset()`, `analytics.track()`.
-
-Hiện tích hợp **GA4** qua `gtag.js`. Microsoft Clarity là stub no-op, sẽ được wire ở commit kế tiếp.
 
 **Khi nào tracking thực sự chạy:**
 - `import.meta.env.PROD === true` (production build), **VÀ**
 - `window.location.hostname === 'ops.nedu.vn'`, **VÀ**
-- `VITE_GA4_ID` có giá trị.
+- env var tương ứng (`VITE_GA4_ID` / `VITE_CLARITY_ID`) có giá trị.
 
 Mọi case khác (dev, vercel preview, hostname custom) → no-op. Set env trong Vercel project settings cho `Production` environment, không cần ghi vào `.env` local.
 
@@ -96,6 +95,14 @@ Mọi case khác (dev, vercel preview, hostname custom) → no-op. Set env trong
 1. Thêm key + shape params vào `EventMap` trong [src/shared/analytics/events.ts](src/shared/analytics/events.ts).
 2. Ở consumer: `analytics.track('event_name', { ...params })`.
 3. Quy tắc params: snake_case, **chỉ ID — không PII**.
+
+**Privacy / PII (Clarity):**
+- Mặc định nên set Mask Mode = **Strict** trong Clarity dashboard.
+- Khi cần unmask element an toàn (label, button text...), thêm attribute `data-clarity-unmask="true"` ở element đó.
+- Khi cần che PII trong DOM mà chưa được mask sẵn, thêm `data-clarity-mask="true"`.
+- Tham khảo: <https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-masking>.
+
+**Clarity SDK:** dùng package chính chủ [`@microsoft/clarity`](https://www.npmjs.com/package/@microsoft/clarity) (MIT, 0 deps, ~7 KB) — không tự inject snippet thủ công.
 
 ---
 
