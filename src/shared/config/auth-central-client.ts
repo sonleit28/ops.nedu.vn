@@ -28,7 +28,7 @@ class AuthCentralError extends Error {
 }
 
 function baseUrl(): string {
-  const url = env.VITE_AUTH_CENTRAL_URL
+  const url = env.AUTH_CENTRAL_URL
   if (!url) throw new Error('VITE_AUTH_CENTRAL_URL is not configured')
   return url.replace(/\/$/, '')
 }

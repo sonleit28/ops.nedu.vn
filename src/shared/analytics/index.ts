@@ -3,15 +3,16 @@ import { ga4 } from './ga4'
 import { clarity } from './clarity'
 import type { EventMap, EventName } from './events'
 
-// Chỉ enable trên prod build + hostname đã chốt. Mọi case khác (dev,
-// preview, mock, hostname khác) → no-op để tránh làm bẩn data.
+// Chỉ bắn event ở production build VÀ hostname đã chốt. Local preview
+// (npm run preview, localhost) hoặc deploy lên hostname khác (Vercel
+// preview, staging) → no-op để tránh làm bẩn data prod.
 const ENABLED_HOSTNAMES = new Set(['ops.nedu.vn'])
 
 let initialized = false
 let enabled = false
 
 function shouldEnable(): boolean {
-  if (!import.meta.env.PROD) return false
+  if (!env.IS_PROD) return false
   if (typeof window === 'undefined') return false
   return ENABLED_HOSTNAMES.has(window.location.hostname)
 }
@@ -23,8 +24,8 @@ export const analytics = {
     enabled = shouldEnable()
     if (!enabled) return
 
-    if (env.VITE_GA4_ID) ga4.load(env.VITE_GA4_ID)
-    if (env.VITE_CLARITY_ID) clarity.load(env.VITE_CLARITY_ID)
+    if (env.GA4_ID) ga4.load(env.GA4_ID)
+    if (env.CLARITY_ID) clarity.load(env.CLARITY_ID)
   },
 
   pageView(path: string, title?: string) {

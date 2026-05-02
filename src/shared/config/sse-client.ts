@@ -24,7 +24,7 @@ export interface SseOptions {
 export async function subscribeSse(path: string, opts: SseOptions): Promise<void> {
   const run = async (): Promise<void> => {
     const token = tokenStorage.getAccess()
-    const res = await fetch(`${env.VITE_API_URL}/api${path}`, {
+    const res = await fetch(`${env.API_URL}/api${path}`, {
       method: 'GET',
       headers: {
         Accept: 'text/event-stream',

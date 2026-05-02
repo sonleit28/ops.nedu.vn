@@ -46,7 +46,7 @@ function buildHeaders(token: string | null, hasBody: boolean): Record<string, st
 }
 
 async function doFetch(method: string, path: string, body: unknown, token: string | null) {
-  return fetch(`${env.VITE_API_URL}/api${path}`, {
+  return fetch(`${env.API_URL}/api${path}`, {
     method,
     headers: buildHeaders(token, body !== undefined),
     body: body !== undefined ? JSON.stringify(body) : undefined,

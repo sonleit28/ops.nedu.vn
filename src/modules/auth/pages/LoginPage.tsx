@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/useAuthStore'
-
-const IS_MOCK = import.meta.env.VITE_ENABLE_MOCKING === 'true'
+import { env } from '@shared/config/env'
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate()
@@ -63,7 +62,7 @@ export const LoginPage: React.FC = () => {
                 Đăng nhập với Google
               </button>
 
-              {IS_MOCK && (
+              {env.IS_MOCK && (
                 <>
                   <div className="login-divider">hoặc</div>
                   <button className="dev-btn" onClick={handleDev}>

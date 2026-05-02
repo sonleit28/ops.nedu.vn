@@ -58,7 +58,7 @@ async function cleanupLegacyMockWorker() {
 }
 
 export async function enableMocking() {
-  if (!env.VITE_ENABLE_MOCKING) {
+  if (!env.IS_MOCK) {
     await cleanupLegacyMockWorker()
     return
   }

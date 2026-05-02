@@ -10,8 +10,7 @@ import { queryClient } from '@shared/config/query-client'
 import { RouteTracker } from '@shared/analytics/RouteTracker'
 import { env } from '@shared/config/env'
 
-// Lazy-load Devtools để tree-shake khỏi prod bundle. Vite build drop
-// hẳn import này khi IS_DEV=false.
+// Lazy-load Devtools chỉ ở dev mode để tree-shake khỏi prod bundle.
 const ReactQueryDevtools = env.IS_DEV
   ? React.lazy(() =>
       import('@tanstack/react-query-devtools').then((m) => ({
