@@ -13,7 +13,7 @@ Gọi [`nedu-backend`](../../NLH-NEDU-CORE/nedu-backend/) để lấy data; auth
 - **React Router 7**
 - **Tailwind CSS 4** (via `@tailwindcss/vite`)
 - **MSW 2** — mock API cho dev mode (bật/tắt bằng `VITE_ENABLE_MOCKING`)
-- Deploy: **Vercel** (xem `vercel.json`)
+- Deploy: **Cloudflare Workers** (primary, qua `@cloudflare/vite-plugin`) + **Vercel** (optional/parallel, xem `vercel.json`)
 
 ---
 
@@ -87,7 +87,7 @@ Module: [src/shared/analytics/](src/shared/analytics/). Public API: `analytics.i
 - `window.location.hostname === 'ops.nedu.vn'`, **VÀ**
 - env var tương ứng (`VITE_GA4_ID` / `VITE_CLARITY_ID`) có giá trị.
 
-Mọi case khác (dev, vercel preview, hostname custom) → no-op. Set env trong Vercel project settings cho `Production` environment, không cần ghi vào `.env` local.
+Mọi case khác (dev, vercel preview, `*.workers.dev`, `nedu-ops-dev`, hostname custom) → no-op. Set `VITE_CLARITY_ID` ở Cloudflare `nedu-ops-prod` Build Variables (xem Section 6) cho production; không cần ghi vào `.env` local.
 
 **Identify:** sau khi user login, store gọi `analytics.identify(person_id, { role })`. KHÔNG truyền email / full_name / phone.
 
@@ -106,13 +106,67 @@ Mọi case khác (dev, vercel preview, hostname custom) → no-op. Set env trong
 
 ---
 
-## 6. Deploy (Vercel)
+## 6. Deploy
+
+> Reference đầy đủ cho cả workspace: [`/DEPLOY-CLOUDFLARE.md`](../../DEPLOY-CLOUDFLARE.md). Section dưới chỉ note ngắn cho ops.nedu.vn.
+>
+> **Quan trọng:** Worker name **thực tế** trên CF = top-level `name` trong `wrangler.jsonc` (`nedu-ops`). Block `env.{dev,production}.name` (`nedu-ops-dev` / `nedu-ops-prod`) giữ làm declaration; tách 2 worker dev/prod thực sự dựa vào `--name nedu-ops-dev` / `--name nedu-ops-prod` ở `deploy:dev` / `deploy:prod` scripts.
+
+### 6.1 Cloudflare Workers (primary)
+
+**Lần đầu (làm 1 lần ở local):**
+
+```bash
+# 1. Cài deps mới
+npm install
+
+# 2. Login Cloudflare CLI (chỉ chạy 1 lần / 1 máy)
+npx wrangler login
+npx wrangler whoami            # verify đúng account NLH
+
+# 3. Deploy dev → tạo Worker `nedu-ops-dev`
+npm run deploy:dev
+#   → mở https://nedu-ops-dev.<account>.workers.dev và smoke test
+
+# 4. Deploy prod → tạo Worker `nedu-ops-prod`
+npm run deploy:prod
+#   → mở https://nedu-ops-prod.<account>.workers.dev và smoke test
+```
+
+**Sau đó cấu hình trên Cloudflare dashboard:**
+
+1. **Workers & Pages → `nedu-ops-dev` / `nedu-ops-prod` → Source · Connect to Git**
+   - Repo `ops.nedu.vn` (hoặc tên repo tương ứng).
+   - `nedu-ops-dev`: branch `develop` (hoặc `staging`).
+   - `nedu-ops-prod`: branch `main`.
+   - Build command: `npm run cf:build`.
+   - Deploy command: `npx wrangler deploy --name nedu-ops-dev` (hoặc `--name nedu-ops-prod`).
+
+2. **Settings · Variables and Secrets** (build-time, vì Vite bake vào bundle)
+   - `VITE_API_URL` — URL `nedu-backend` tương ứng env (prod / staging).
+   - `VITE_AUTH_CENTRAL_URL` — URL `auth-central` tương ứng env.
+   - `VITE_ENABLE_MOCKING` — `false` cho cả 2 env (mock chỉ chạy ở `npm run dev` local).
+   - `VITE_CLARITY_ID` — chỉ set ở **prod** (analytics chỉ chạy trên `ops.nedu.vn`).
+
+3. **Settings · Domains & Routes**
+   - `nedu-ops-prod`: gắn custom domain `ops.nedu.vn`.
+   - `nedu-ops-dev`: gắn `ops-dev.nedu.vn` (hoặc giữ subdomain `*.workers.dev`).
+
+### 6.2 Vercel (optional/parallel)
 
 - Framework preset: **Vite**
 - Build command: `npm run build`
 - Output dir: `dist`
 - `vercel.json` đã cấu hình rewrite cho SPA routing
 - Env vars: set trong Vercel project settings (không commit `.env`)
+- Giữ Vercel config song song để team có thể deploy preview branch nhanh khi cần.
+
+### 6.3 Quy tắc
+
+- **Không** đổi top-level `name` trong `wrangler.jsonc` (đã pin `nedu-ops`). Worker dev/prod tách qua `--name` flag, không phải env block.
+- **Không** commit `.wrangler/`, `.dev.vars` (đã `.gitignore`).
+- Thay đổi `wrangler.jsonc` (thêm binding R2/KV) → deploy local 1 lần test trước, rồi mới merge.
+- SPA fallback đã handle qua `assets.not_found_handling: "single-page-application"` — không cần worker code custom.
 
 ---
 

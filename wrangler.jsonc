@@ -1,0 +1,16 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "nedu-ops",
+	"compatibility_date": "2026-04-01",
+	"assets": {
+		"not_found_handling": "single-page-application"
+	},
+	"env": {
+		"production": {
+			"name": "nedu-ops-prod"
+		},
+		"dev": {
+			"name": "nedu-ops-dev"
+		}
+	}
+}
