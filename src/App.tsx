@@ -29,6 +29,9 @@ import { actionIconOf, actionLabelOf } from '@modules/ops/utils/pipeline-actions
 import { UUID_BY_NUMERIC_ID, leadToTodo } from '@modules/ops/utils/lead-mapper';
 import { toDisplayMembers } from '@modules/ops/utils/team-display';
 import { getFunnelLayer, nowStr, calcAge, getProfilePct, buildHintTxt } from '@modules/ops/utils/lead-helpers';
+import { LeadCard } from '@modules/ops/components/lead-card';
+import { LeadHero } from '@modules/ops/components/lead-hero';
+import { FunnelBar } from '@modules/ops/components/funnel-bar';
 
 // ─── MAIN APP ─────────────────────────────────────────
 export default function App() {
@@ -1313,124 +1316,6 @@ export default function App() {
 }
 
 // ─── SUB COMPONENTS ──────────────────────────────────
-
-function LeadCard({t, activeId, onSelect, onToggleDone}: {
-  t: Todo; activeId: number|null;
-  onSelect: (id:number)=>void;
-  onToggleDone: (e:React.MouseEvent, id:number)=>void;
-}) {
-  const isA = t.id === activeId;
-  const uc = t.priority==='urgent' ? 'urgent' : t.badgeColor==='amber' ? 'warn' : '';
-  const bb: Record<string,string> = {red:'var(--red-b)',amber:'var(--amber-b)',blue:'var(--blue-b)',green:'var(--green-b)'};
-  const bc: Record<string,string> = {red:'var(--red)',amber:'var(--amber)',blue:'var(--blue)',green:'var(--green)'};
-  const srcBg = t.sourceType==='marketing' ? 'var(--blue-b)' : 'var(--stone)';
-  const srcCl = t.sourceType==='marketing' ? 'var(--blue)' : 'var(--t3)';
-  const srcLbl = t.sourceType==='marketing' ? '📢 Quảng cáo' : '🌐 Tự đến';
-  // Hot=đỏ, Warm=vàng, Cold=xanh dương (lấy từ metadata.temperature).
-  // Undefined: không tô viền (lead chưa được phân loại).
-  const tempBorder = t.temperature === 'hot' ? 'var(--red)'
-    : t.temperature === 'warm' ? 'var(--amber)'
-    : t.temperature === 'cold' ? 'var(--blue)'
-    : undefined;
-  const tempBadge = t.temperature === 'hot'
-    ? { bg: 'var(--red-s)', fg: 'var(--red)', label: '🔥 Lead nóng' }
-    : t.temperature === 'warm'
-    ? { bg: 'var(--amber-s)', fg: 'var(--amber)', label: '🌤 Lead ấm' }
-    : t.temperature === 'cold'
-    ? { bg: 'var(--blue-s)', fg: 'var(--blue)', label: '❄ Lead lạnh' }
-    : null;
-  return (
-    <div
-      className={`action-item ${uc} ${isA?'active':''} ${t.done?'done':''}`}
-      onClick={()=>onSelect(t.id)}
-      style={tempBorder ? { borderLeft: `4px solid ${tempBorder}` } : undefined}
-    >
-      <div className={`ai-check${t.done?' checked':''}`} onClick={e=>onToggleDone(e,t.id)}/>
-      <div className="ai-body">
-        <div className="ai-action">{t.action}</div>
-        <div className="ai-name">{t.name}</div>
-        <div className="ai-desc">{t.desc}</div>
-        <div className="ai-badges">
-          {tempBadge && (
-            <span className="ai-badge" style={{background:tempBadge.bg,color:tempBadge.fg}}>{tempBadge.label}</span>
-          )}
-          <span className="ai-badge" style={{background:bb[t.badgeColor]||'var(--stone)',color:bc[t.badgeColor]||'var(--t2)'}}>{t.badge}</span>
-          <span className="ai-badge" style={{background:srcBg,color:srcCl}}>{srcLbl}</span>
-        </div>
-      </div>
-      <div style={{fontSize:14,opacity:.3,flexShrink:0,marginTop:2}}>›</div>
-    </div>
-  );
-}
-
-function LeadHero({t, onCall, onXfer, onEnroll}: {t:Todo; onCall:(id:number)=>void; onXfer:(id:number)=>void; onEnroll:(id:number)=>void}) {
-  const isMarketing = t.sourceType === 'marketing';
-  const srcBg = isMarketing ? 'var(--blue-s)' : 'var(--green-s)';
-  const srcBr = isMarketing ? 'var(--blue-b)' : 'var(--green-b)';
-  const srcCl = isMarketing ? 'var(--blue)' : 'var(--green)';
-  const srcLbl = isMarketing ? `📢 Quảng cáo · ${t.sourceCh}` : `🌐 Tự đến · ${t.sourceCh}`;
-  const initial = t.name.split(' ').pop()?.[0] || t.name[0];
-  return (
-    <div className="lead-hero">
-      <div className="lh-row">
-        <div className="lh-avatar" style={{background:t.color}}>{initial}</div>
-        <div className="lh-meta">
-          <div className="lh-name">{t.name}</div>
-          <div className="lh-contact">
-            <span>📞 {t.phone}</span><span>📧 {t.email}</span>
-          </div>
-          <div className="lh-tags">
-            <span className="lh-tag" style={{background:srcBg,border:`1px solid ${srcBr}`,color:srcCl}}>{srcLbl}</span>
-            <span className="lh-tag" style={{background:'var(--stone)',border:'1px solid var(--stone2)',color:'var(--t2)'}}>{t.days===0?'Hôm nay':t.days+' ngày trước'}</span>
-            {t.testScore>0
-              ? <span className="lh-tag" style={{background:'var(--green-s)',border:'1px solid var(--green-b)',color:'var(--nedu)'}}>Test: {t.testScore}/100</span>
-              : <span className="lh-tag" style={{background:'var(--amber-s)',border:'1px solid var(--amber-b)',color:'var(--amber)'}}>⚠ Chưa làm test</span>
-            }
-          </div>
-          {(t.courses||[]).length > 0 && (
-            <div className="course-badges">
-              {(t.courses||[]).map(cid => {
-                const c = COURSES.find(x=>x.id===cid);
-                return c ? <div key={cid} className="course-badge">{c.emoji} {c.name}</div> : null;
-              })}
-            </div>
-          )}
-        </div>
-        <div className="lh-actions">
-          {t.stage<=5 && <button className="btn btn-call btn-sm" onClick={()=>onCall(t.id)}>📞 Gọi & Hồ sơ</button>}
-          <button className="btn btn-ghost btn-sm" onClick={()=>onXfer(t.id)} title="Chuyển case hoặc Co-deal">↔ Co-deal</button>
-          {t.stage===4 && <button className="btn btn-primary btn-sm" onClick={()=>onEnroll(t.id)}>✅ Đánh dấu đã chốt</button>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FunnelBar({t}: {t:Todo}) {
-  return (
-    <div className="funnel-bar">
-      {FUNNEL_LAYERS.map((l,i) => {
-        const isCur = l.stages.includes(t.stage);
-        const isPast = l.id==='attract' || l.id==='convert';
-        const tag = l.id==='attract'
-          ? <span style={{fontSize:8,background:'rgba(107,114,128,.1)',padding:'1px 5px',borderRadius:4,color:'var(--t3)'}}>tương lai</span>
-          : l.id==='convert'
-          ? <span style={{fontSize:8,background:'var(--blue-s)',padding:'1px 5px',borderRadius:4,color:'var(--blue)'}}>nedu.vn</span>
-          : null;
-        return (
-          <span key={l.id} style={{display:'flex',alignItems:'center'}}>
-            {i>0 && <span className="fb-arr">›</span>}
-            <div className={`fb-layer${isCur?' active':isPast?' past':''}`}
-              style={isCur?{color:l.color,borderBottomColor:l.color}:{}}>
-              <span className="fb-dot" style={{background:isCur?l.color:isPast?'var(--green)':'var(--stone2)'}}/>
-              {' '}{l.label}{tag}
-            </div>
-          </span>
-        );
-      })}
-    </div>
-  );
-}
 
 function CenterBody({t, guideChecks, profileCards, onToggleGuide, onSendNote, onEditNote, onDeleteNote, onToggleCourse, editingNotes, onStartEditNote, onCancelEditNote}: {
   t: Todo; guideChecks: Record<number,boolean>;
