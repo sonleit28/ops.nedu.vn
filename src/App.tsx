@@ -1,16 +1,12 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLeads, useAdvanceStage, useCreateEnrollment, useCreateNote, useUpdateNote, useDeleteNote, useLeadActions, useLeadNotes, useUpdateLead, useTransferLead, useCreateCoDeal, usePersonalProfile, useGeneratePersonalProfile, useKpiTeam } from '@modules/ops/hooks/useLeads';
 import { useQueryClient } from '@tanstack/react-query';
-import type { KpiTeamMember } from '@modules/ops/types';
 import { useLeadStream } from '@modules/ops/hooks/useLeadStream';
 import { useCatchUpNotifications } from '@modules/ops/hooks/useCatchUpNotifications';
 import { useAuthStore } from '@modules/auth/stores/useAuthStore';
 import { useNotificationStore } from '@shared/stores/notification-store';
 import type {
   Lead as BackendLead,
-  PipelineStage,
-  ProgramSlug,
-  PaymentMethod,
   PipelineAction,
   PersonalProfile as BackendPersonalProfile,
   Profile,
@@ -18,345 +14,21 @@ import type {
   NoteItem,
   Todo,
   ProfileCard,
-  DisplayTeamMember,
 } from '@modules/ops/types';
-
-// FE course key → BE course.code (cho leads.interested_courses[]).
-// Ngược chiều của COURSE_CODE_TO_UI bên dưới.
-const UI_COURSE_TO_CODE: Record<string, string> = {
-  lcm: 'LCM', adult: 'TKBT', meta: 'META', exec: 'COACHING',
-  short: 'WS-JOURNAL', corp: 'CORPORATE',
-};
-// Legacy mapping cho enrollment (program_slug enum cũ — chưa migrate).
-const COURSE_TO_PROGRAM: Record<string, ProgramSlug> = {
-  lcm: 'la-chinh-minh', adult: 'adult-learning', exec: 'executive',
-  short: 'short-course', corp: 'corporate',
-};
-const PAY_METHOD_MAP: Record<string, PaymentMethod> = {
-  transfer: 'bank_transfer', card: 'credit_card', momo: 'e_wallet', wallet: 'e_wallet',
-};
-
-// ─── CONSTANTS ───────────────────────────────────────
-const S_NAMES = ['Biết đến','Quan tâm','Cân nhắc','Muốn mua','Đã đăng ký','Giữ chân'];
-const S_ICONS = ['👁','💡','🤔','🔥','✅','🎓'];
-
-const FUNNEL_LAYERS = [
-  {id:'attract', short:'Thu hút',    label:'Thu hút khách',     color:'#6B7280', stages:[] as number[]},
-  {id:'convert', short:'Chuyển đổi', label:'Chuyển đổi khách',  color:'#3B82F6', stages:[] as number[]},
-  {id:'nurture', short:'Nuôi dưỡng', label:'Nuôi dưỡng lead',   color:'#8B5CF6', stages:[1,2,3]},
-  {id:'close',   short:'Chốt deal',  label:'Chốt khách hàng',   color:'#F59E0B', stages:[4,5]},
-  {id:'delight', short:'Chăm sóc',   label:'Chăm sóc khách',    color:'#059669', stages:[6]},
-];
-
-function getFunnelLayer(stage: number) {
-  return FUNNEL_LAYERS.find(l => l.stages.includes(stage)) || FUNNEL_LAYERS[2];
-}
-
-const NEXT_LABELS: Record<number, string> = {
-  1:'Đã liên hệ → Quan tâm',
-  2:'Đang quan tâm → Cân nhắc',
-  3:'Gần quyết định → Muốn mua',
-  4:'✅ Đã đăng ký',
-  5:'→ Giữ chân',
-};
-const BACK_REASONS = [
-  {icon:'🤔', label:'Cần tư vấn thêm — chưa đủ thông tin'},
-  {icon:'💰', label:'Chưa sẵn sàng tài chính'},
-  {icon:'⏳', label:'Khách cần thêm thời gian suy nghĩ'},
-  {icon:'📵', label:'Mất liên lạc tạm thời'},
-  {icon:'❌', label:'Khách đổi ý hoặc không quan tâm nữa'},
-  {icon:'📝', label:'Lý do khác (ghi chú bên dưới)'},
-];
-const GUIDES: Record<number, {eyebrow:string,color:string,title:string,script:string,steps:string[]}> = {
-  1:{eyebrow:'LIÊN HỆ LẦN ĐẦU',color:'#EF4444',title:'Gọi điện — đọc hồ sơ trước',
-     script:'"Dạ em là <strong>Linh</strong> từ Nedu ạ. Anh/chị có tiện nghe không ạ?"',
-     steps:['Bấm "📞 Gọi & xem hồ sơ" để đọc thông tin','Giới thiệu bản thân + mục đích (30 giây)','Hỏi về vấn đề, chưa chào hàng','Ghi chú trong cuộc gọi','Đặt lịch call tiếp']},
-  2:{eyebrow:'NUÔI DƯỠNG',color:'#3B82F6',title:'Follow up cá nhân hóa',
-     script:'"Em chia sẻ thêm nội dung liên quan điều anh/chị đề cập hôm trước..."',
-     steps:['Ôn lại note lần trước','Gửi nội dung phù hợp','Hỏi sâu về nhu cầu','Share câu chuyện học viên tương tự','Đề xuất tư vấn 30 phút']},
-  3:{eyebrow:'TƯ VẤN SÂU',color:'#8B5CF6',title:'Giải quyết băn khoăn cuối',
-     script:'"Điều gì đang khiến anh/chị chưa quyết định? Em muốn giúp có đủ thông tin."',
-     steps:['Xác định băn khoăn chính','Chia sẻ phản hồi học viên phù hợp','Giải thích lợi ích đầu tư','Mời tham dự buổi học thử','Đặt mốc thời gian quyết định']},
-  4:{eyebrow:'SẮP CHỐT',color:'#D97706',title:'Xác nhận và chốt deal',
-     script:'"Anh/chị đã sẵn sàng chưa? Em giữ chỗ nha."',
-     steps:['Tóm tắt những gì đã đồng ý','Xác nhận thông tin thanh toán','Gửi số tài khoản','Hẹn thời điểm chuyển khoản','Đánh dấu đã chốt ngay khi nhận tiền']},
-  5:{eyebrow:'SAU BÁN HÀNG',color:'#059669',title:'Theo dõi trải nghiệm học',
-     script:'"Chào anh/chị, em muốn hỏi thăm trải nghiệm tuần đầu. Có gì cần hỗ trợ không ạ?"',
-     steps:['Hỏi thăm sau 3 ngày đầu','Hỏi về trải nghiệm học phần đầu tiên','Xem họ có kết nối với cộng đồng không','Mời tham gia hoạt động nhóm','Xin phản hồi nếu họ hài lòng']},
-  6:{eyebrow:'CỰU HỌC VIÊN',color:'#06B6D4',title:'Kết nối vào mạng cựu học viên',
-     script:'"Chúc mừng anh/chị hoàn thành khóa học! Em muốn mời tham gia cộng đồng alumni."',
-     steps:['Gửi link alumni.nedu.vn','Giới thiệu các hoạt động cộng đồng','Hỏi về giới thiệu — ai trong gia đình/bạn bè cần','Ghi nhận phản hồi','Theo dõi dài hạn']},
-};
-const PF_FIELDS = [
-  {key:'dob',    label:'Ngày sinh',    icon:'🎂', ph:'VD: 15/08/1990'},
-  {key:'birthTime',label:'Giờ sinh',  icon:'🕐', ph:'VD: 14:30'},
-  {key:'job',    label:'Nghề nghiệp', icon:'💼', ph:'VD: Kế toán, Giám đốc...'},
-  {key:'goal',   label:'Mục tiêu',    icon:'🎯', ph:'VD: Cân bằng cuộc sống...'},
-  {key:'pain',   label:'Vấn đề chính',icon:'💬', ph:'VD: Stress công việc...'},
-];
-const COURSES = [
-  {id:'lcm',  name:'Là Chính Mình',         emoji:'🌱', desc:'Tâm lý · tự nhận thức'},
-  {id:'adult', name:'Học Tập Người Lớn',    emoji:'📚', desc:'Phát triển bản thân'},
-  {id:'exec',  name:'Lộ Trình Điều Hành',   emoji:'🎯', desc:'Lãnh đạo · doanh nhân'},
-  {id:'short', name:'Khóa Ngắn Hạn',        emoji:'⚡', desc:'Ngắn hạn · online'},
-  {id:'corp',  name:'Doanh Nghiệp',         emoji:'🏢', desc:'Doanh nghiệp'},
-];
-
-
-const PROFILE_CARDS_INIT: Record<number, ProfileCard> = {
-  4:{gen:true,dm:'Giáp Mộc 甲',lp:'6',nk:'Sao 1 Thủy',sun:'Xử Nữ',menh:'Mộc Tam Cục',gua:'7',
-     q:'"Cây đại thụ tìm gốc rễ — thành công bên ngoài, trống rỗng bên trong."',
-     core:'Giáp Mộc nhật chủ — lãnh đạo bẩm sinh, thẳng thắn. Cần được tôn trọng. Bên ngoài mạnh nhưng thiếu kết nối chiều sâu.',
-     talk:[{y:true,t:'<strong>Nói thẳng, không vòng vo.</strong> Dùng "kết quả", "ROI", "hệ thống".'},{y:true,t:'<strong>Tôn trọng trí tuệ.</strong> Không giải thích quá kỹ.'},{y:false,t:'<strong>Tránh:</strong> "cảm xúc", "chữa lành". Thay bằng "kết nối nội tâm", "lãnh đạo minh mẫn".'}],
-     need:'CEO thành đạt nhưng cô đơn trong vai trò. Đội nhóm sợ, gia đình xa cách. Muốn tìm ý nghĩa thật sự.',
-     timing:'2026: Sao 1 vào Trung Cung — năm bước ngoặt nội tâm lớn nhất 9 năm qua.',
-     opening:'"Anh Nam, anh không cần thêm kiến thức kinh doanh. Điều anh đang tìm là đội nhóm thật sự tin anh, và gia đình cảm nhận được anh đang hiện diện với họ."'},
-  6:{gen:true,dm:'Đinh Hỏa 丁',lp:'9',nk:'Sao 3 Chấn',sun:'Sư Tử',menh:'Hỏa Lục Cục',gua:'2',
-     q:'"Ngọn nến đã cháy lại — lần này chính mình thắp."',
-     core:'Đinh Hỏa — ngọn nến ấm, sâu. Năm 2022 Thủy vượng (cảm xúc lấn át). 2026 Sao 3 Chấn — Mộc sinh Hỏa — lần đầu thật sự sẵn sàng từ bên trong.',
-     talk:[{y:true,t:'<strong>Thừa nhận quá khứ:</strong> "Em biết anh đã tìm hiểu từ trước..."'},{y:true,t:'<strong>Nhấn mạnh sự thay đổi thời điểm.</strong> "Năm 2022 khác. Năm nay khác."'},{y:false,t:'<strong>Tránh:</strong> Ép quyết định nhanh. Anh đã chờ 3 năm — không phải quyết định bốc đồng.'}],
-     need:'Sợ gia đình không ủng hộ (2022). 3 năm qua có gì đó thay đổi. Lần này tự mình tìm kiếm.',
-     timing:'2026: Personal Year 9 — kết thúc chu kỳ 9 năm. Năm "dứt điểm những gì chưa hoàn thành".',
-     opening:'"Anh Phúc, em thấy anh đã tìm hiểu từ 2022. Em tò mò — điều gì đã khiến anh quay lại đúng thời điểm này?"'},
-};
-
-function actionIconOf(type: PipelineAction['action_type']): string {
-  switch (type) {
-    case 'stage_advanced': return '➡️';
-    case 'stage_regressed': return '↩️';
-    case 'note_added': return '📝';
-    case 'lead_assigned': return '📥';
-    case 'lead_transferred': return '↔️';
-    case 'co_deal_created': return '🤝';
-    case 'enrolled': return '✅';
-    case 'profile_updated': return '🧩';
-    case 'ai_profile_generated': return '✨';
-    default: return '•';
-  }
-}
-function actionLabelOf(a: PipelineAction): string {
-  switch (a.action_type) {
-    case 'stage_advanced': return `Tiến stage: ${a.stage_from} → ${a.stage_to}`;
-    case 'stage_regressed': return `Lùi stage: ${a.stage_from} → ${a.stage_to}`;
-    case 'note_added': return 'Ghi chú cho người kế tiếp';
-    case 'lead_assigned': return 'Được giao';
-    case 'lead_transferred': return 'Chuyển case';
-    case 'co_deal_created': return 'Tạo co-deal';
-    case 'enrolled': return 'Đã chốt';
-    case 'profile_updated': return 'Cập nhật hồ sơ';
-    case 'ai_profile_generated': return 'Tạo Hồ sơ AI';
-    default: return a.action_type;
-  }
-}
-
-// ─── Backend Lead → Todo mapper ──────────────────────
-// Backend trả UUID string; UI gốc dùng id:number. Giữ bảng map bên ngoài để
-// các mutation sau biết UUID thật khi cần.
-const UUID_BY_NUMERIC_ID: Record<number, string> = {};
-const NUMERIC_ID_BY_UUID: Record<string, number> = {};
-let __NEXT_NUMERIC_ID = 1;
-function numericIdFor(uuid: string): number {
-  if (uuid in NUMERIC_ID_BY_UUID) return NUMERIC_ID_BY_UUID[uuid];
-  const n = __NEXT_NUMERIC_ID++;
-  NUMERIC_ID_BY_UUID[uuid] = n;
-  UUID_BY_NUMERIC_ID[n] = uuid;
-  return n;
-}
-
-const STAGE_TO_NUM: Record<PipelineStage, number> = {
-  awareness: 1, interest: 2, consideration: 3, intent: 4, enrolled: 5, retention: 6,
-};
-
-// Map course.code (BE) → FE course key dùng cho UI badge.
-// Source: courses table seed (xem nedu-backend/src/db/migrations/0008_courses_catalog.sql).
-const COURSE_CODE_TO_UI: Record<string, string> = {
-  LCM: 'lcm',
-  TKBT: 'adult',
-  META: 'meta',
-  COACHING: 'exec',
-  'WS-JOURNAL': 'short',
-  CORPORATE: 'corp',
-};
-
-const STAGE_COLOR: Record<number, string> = {
-  1: '#EF4444', 2: '#F59E0B', 3: '#8B5CF6', 4: '#06B6D4', 5: '#059669', 6: '#3B82F6',
-};
-
-// Sync với backend CONSULTANT_MAX_ACTIVE_LEADS — leader cảnh báo khi vượt.
-const LOAD_CAPACITY = 20;
-
-function leadToTodo(lead: BackendLead): Todo {
-  const stage = STAGE_TO_NUM[lead.stage] ?? 1;
-  const isMarketing = lead.source === 'marketing';
-  const priority = lead.sla_breached || stage <= 2 ? 'urgent' : 'today';
-  const badge = lead.sla_breached
-    ? `⚠ Quá hạn${lead.sla_breach_hours ? ' ' + lead.sla_breach_hours + 'h' : ''}`
-    : lead.is_returning ? '🔄 Khách cũ'
-    : isMarketing ? '📢 Quảng cáo'
-    : `Giai đoạn ${stage}`;
-  const badgeColor = lead.sla_breached ? 'red'
-    : lead.is_returning ? 'amber'
-    : isMarketing ? 'blue'
-    : stage >= 4 ? 'green' : 'purple';
-  const action = stage === 4 ? 'CHỐT DEAL' : stage >= 3 ? 'TƯ VẤN' : 'GỌI NGAY';
-  const createdAt = new Date(lead.created_at);
-  const now = new Date();
-  const days = Math.max(0, Math.floor((now.getTime() - createdAt.getTime()) / 86400000));
-
-  return {
-    id: numericIdFor(lead.id),
-    priority, action,
-    name: lead.full_name,
-    badge, badgeColor,
-    desc: lead.main_concern ?? lead.goal ?? '',
-    stage,
-    phone: lead.phone,
-    email: lead.email ?? '',
-    sourceType: isMarketing ? 'marketing' : 'inbound',
-    // Đọc source_channel thật từ BE (vd: "nedu.vn/consultation-form", "nedu.vn/test", "fb-ads-T4").
-    // Fallback theo source khi BE chưa cấp channel cụ thể.
-    sourceCh: lead.source_channel ?? (isMarketing ? 'Chiến dịch quảng cáo' : 'inbound'),
-    color: STAGE_COLOR[stage] ?? '#8B5CF6',
-    days,
-    testScore: lead.test_score ?? 0,
-    testDesc: lead.test_score ? `Điểm test: ${lead.test_score}/100` : 'Chưa làm test',
-    note: '',
-    profile: {
-      dob: lead.birth_date ?? '',
-      birthTime: lead.birth_time ?? '',
-      job: lead.occupation ?? '',
-      goal: lead.goal ?? '',
-      pain: lead.main_concern ?? '',
-      gender: lead.metadata?.gender as ('male'|'female'|undefined),
-    },
-    courses: lead.interested_courses.map(c => COURSE_CODE_TO_UI[c]).filter(Boolean),
-    timeline: [],
-    notes: [],
-    done: lead.stage === 'enrolled' || lead.stage === 'retention',
-    temperature: lead.metadata?.temperature,
-    aiProfileConsent: lead.ai_profile_consent,
-    assignedTo: lead.assigned_to_full_name,
-  };
-}
-
-const INIT_TODOS: Todo[] = [
-  {id:6,priority:'urgent',action:'GỌI NGAY',name:'Lê Minh Phúc',
-   badge:'🔄 Khách cũ 3 năm',badgeColor:'amber',
-   desc:'Từng hỏi 2022 rồi lặn. Đọc lịch sử trước khi gọi!',
-   stage:1,phone:'0908 777 123',email:'phuc.lm@gmail.com',
-   sourceType:'inbound',sourceCh:'nedu.vn/test',color:'#8B5CF6',days:0,
-   testScore:68,testDesc:'Điểm tăng 51→68 (2022→2026). Sẵn sàng hơn rồi.',
-   note:'',profile:{dob:'19/07/1987',birthTime:'',job:'Giáo viên THPT',goal:'',pain:''},
-   courses:['lcm'],
-   timeline:[
-     {icon:'☑️',action:'Tick "cho tư vấn" — lần 2',date:'06/04/2026 08:15',who:'Hệ thống',note:''},
-     {icon:'🧩',action:'Bài test lần 2 — điểm 68',date:'06/04/2026 08:10',who:'Hệ thống',note:'Tăng từ 51 lên 68 sau 3 năm'},
-     {isDivider:true,label:'── 3 năm trước · 2022 ──'},
-     {icon:'📞',action:'Tư vấn lần 1 — 2022',date:'15/03/2022 10:00',who:'Hương Nguyễn',note:'Nói "chưa sẵn sàng tài chính, để sau". Giọng có áp lực gia đình. Hỏi nhiều về lịch cuối tuần.'},
-     {icon:'🧩',action:'Bài test lần 1 — điểm 51',date:'12/03/2022',who:'Hệ thống',note:''},
-   ],
-   notes:[{text:'Khách cũ — lần đầu do áp lực gia đình. Lần này TỰ quay lại. Hỏi ngay: "Điều gì thay đổi trong 3 năm?" trước khi pitch.',date:'06/04/2026',who:'Hương Nguyễn (2022)'}],
-   done:false},
-
-  {id:1,priority:'urgent',action:'GỌI NGAY',name:'Nguyễn Văn Hùng',
-   badge:'⚠ Quá hạn 26h',badgeColor:'red',
-   desc:'Chưa được liên hệ từ hôm qua.',
-   stage:1,phone:'0987 654 321',email:'hung.nv@hotmail.com',
-   sourceType:'inbound',sourceCh:'nedu.vn/test',color:'#EF4444',days:1,
-   testScore:61,testDesc:'Áp lực công việc cao, muốn thay đổi.',
-   note:'',profile:{dob:'',birthTime:'',job:'',goal:'',pain:''},
-   courses:[],
-   timeline:[
-     {icon:'☑️',action:'Tick "cho tư vấn"',date:'05/04/2026 07:30',who:'Hệ thống',note:''},
-     {icon:'🧩',action:'Hoàn thành bài test',date:'05/04/2026 07:25',who:'Hệ thống',note:''},
-   ],notes:[],done:false},
-
-  {id:7,priority:'urgent',action:'GỌI NGAY',name:'Vũ Thị Phương',
-   badge:'📢 Chiến dịch quảng cáo',badgeColor:'blue',
-   desc:'Từ Facebook Ads Tháng 4. Marketing team đã thu thập email.',
-   stage:1,phone:'0976 543 210',email:'phuong.vt@gmail.com',
-   sourceType:'marketing',sourceCh:'Facebook Ads · Campaign T4/2026',color:'#3B82F6',days:0,
-   testScore:0,testDesc:'Chưa làm bài test — đến từ Marketing trực tiếp.',
-   note:'Lead từ Marketing team. Chưa làm test. Cần thu thập thêm thông tin cơ bản.',
-   profile:{dob:'',birthTime:'',job:'',goal:'',pain:''},
-   courses:[],
-   timeline:[
-     {icon:'📢',action:'Lead từ Facebook Ads Campaign',date:'06/04/2026 06:00',who:'Đội Marketing',note:'UTM: fb_ads_lcm_t4_2026. Điền form landing page quảng cáo. Chưa qua bài test nedu.vn.'},
-   ],notes:[],done:false},
-
-  {id:4,priority:'today',action:'TƯ VẤN',name:'Hoàng Văn Nam',
-   badge:'💬 Objection giá',badgeColor:'amber',
-   desc:'Dùng Hồ sơ AI để xử lý đúng góc độ CEO.',
-   stage:3,phone:'0945 321 098',email:'nam.hv@company.com',
-   sourceType:'inbound',sourceCh:'nedu.vn/test',color:'#06B6D4',days:8,
-   testScore:74,testDesc:'Thành đạt tài chính nhưng trống rỗng bên trong.',
-   note:'Đọc Hồ sơ AI trước khi gọi — có profile đầy đủ.',
-   profile:{dob:'10/03/1985',birthTime:'14:30',job:'CEO Khởi nghiệp',goal:'Tìm lại ý nghĩa',pain:'Cô đơn trong vai trò CEO, đội nhóm sợ không nói thật'},
-   courses:['lcm','exec'],
-   timeline:[
-     {icon:'📞',action:'Tư vấn lần 2 — objection giá',date:'04/04/2026 14:20',who:'Linh Nguyễn',note:'Nói 70M nhiều. Giải thích community + 1-on-1 NhiLe. "Sẽ suy nghĩ". → Dùng góc ROI lần sau.'},
-     {icon:'📞',action:'Tư vấn lần 1',date:'01/04/2026 10:00',who:'Linh Nguyễn',note:'45 phút. Nhiệt tình. Quan tâm leadership mindset.'},
-   ],notes:[{text:'Đừng dùng góc "cảm xúc" với anh này — anh là CEO phân tích ROI. Lần sau mở bằng: "Anh muốn đội nhóm nói thật với anh không?"',date:'04/04/2026',who:'Linh Nguyễn'}],done:false},
-
-  {id:5,priority:'today',action:'CHỐT DEAL',name:'Đặng Thị Thu',
-   badge:'💳 Chờ chuyển khoản',badgeColor:'green',
-   desc:'Lương về ngày 15. Nhắn hỏi thăm nhẹ.',
-   stage:4,phone:'0977 543 210',email:'thu.dang@gmail.com',
-   sourceType:'inbound',sourceCh:'nedu.vn/test',color:'#8B5CF6',days:11,
-   testScore:77,testDesc:'Burnout nặng sau 5 năm.',
-   note:'Chị đã quyết định. Chờ lương.',
-   profile:{dob:'07/11/1992',birthTime:'08:15',job:'Quản lý Marketing',goal:'Thoát kiệt sức',pain:'Mất niềm vui sống'},
-   courses:['lcm'],
-   timeline:[
-     {icon:'💬',action:'Confirm ngày thanh toán',date:'06/04/2026 08:00',who:'Linh Nguyễn',note:'Lương về 15/4, chuyển liền.'},
-     {icon:'📞',action:'Call chốt',date:'04/04/2026 19:30',who:'Linh Nguyễn',note:'45 phút. Rất quyết tâm.'},
-   ],notes:[{text:'Chị ĐÃ quyết định — KHÔNG tư vấn thêm. Chỉ nhắn hỏi thăm nhẹ nhàng, tránh tạo áp lực. Đợi 15/4.',date:'04/04/2026',who:'Linh Nguyễn'}],done:false},
-];
-
-// Palette dùng cho avatar trong Team KPI leaderboard. Map deterministic theo
-// hash của user_id để mỗi member có 1 màu cố định qua các lần render.
-const TEAM_AVATAR_PALETTE = ['#3B82F6','#EC4899','#059669','#F59E0B','#D97706','#7C3AED','#0EA5E9','#EF4444'];
-function pickAvatarColor(userId: string): string {
-  let h = 0;
-  for (let i = 0; i < userId.length; i++) h = (h * 31 + userId.charCodeAt(i)) | 0;
-  return TEAM_AVATAR_PALETTE[Math.abs(h) % TEAM_AVATAR_PALETTE.length];
-}
-
-function toDisplayMembers(members: KpiTeamMember[] | undefined): DisplayTeamMember[] {
-  if (!members) return [];
-  return members.map(m => ({
-    id: m.user_id,
-    name: m.full_name,
-    role: m.role,
-    color: pickAvatarColor(m.user_id),
-    enrolled: m.enrolled_count,
-    target: m.target,
-    revenue: m.revenue_vnd,
-    isMe: m.is_me,
-  }));
-}
-
-// ─── HELPERS ─────────────────────────────────────────
-function nowStr() {
-  const d = new Date();
-  return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
-}
-function calcAge(dob: string) {
-  try {
-    const parts = dob.includes('-') ? dob.split('-') : dob.split('/').reverse();
-    return new Date().getFullYear() - parseInt(parts[0]) + ' tuổi';
-  } catch { return ''; }
-}
-function getProfilePct(t: Todo) {
-  const filled = PF_FIELDS.filter(f => (t.profile[f.key as keyof Profile]||'').trim()).length;
-  return Math.round(((2+filled)/(2+PF_FIELDS.length))*100);
-}
-function buildHintTxt(t: Todo) {
-  const p = t.profile; const h: string[] = [];
-  if (p.dob) { const a = calcAge(p.dob); if (a) h.push(`<strong>${a}</strong>`); }
-  if (p.job) h.push(`<strong>${p.job}</strong>`);
-  return h.join(' · ') || 'Xem trong hồ sơ';
-}
+import {
+  S_NAMES, S_ICONS, FUNNEL_LAYERS, NEXT_LABELS, BACK_REASONS, GUIDES,
+} from '@modules/ops/constants/funnel';
+import {
+  COURSES, UI_COURSE_TO_CODE, COURSE_TO_PROGRAM, PAY_METHOD_MAP,
+} from '@modules/ops/constants/courses';
+import { LOAD_CAPACITY } from '@modules/ops/constants/stages';
+import { PF_FIELDS } from '@modules/ops/constants/ui';
+import { INIT_TODOS, PROFILE_CARDS_INIT } from '@/mocks/data/dashboard-fallback';
+import { env } from '@shared/config/env';
+import { actionIconOf, actionLabelOf } from '@modules/ops/utils/pipeline-actions';
+import { UUID_BY_NUMERIC_ID, leadToTodo } from '@modules/ops/utils/lead-mapper';
+import { toDisplayMembers } from '@modules/ops/utils/team-display';
+import { getFunnelLayer, nowStr, calcAge, getProfilePct, buildHintTxt } from '@modules/ops/utils/lead-helpers';
 
 // ─── MAIN APP ─────────────────────────────────────────
 export default function App() {
@@ -396,7 +68,9 @@ export default function App() {
   const updateLeadM = useUpdateLead();
   const mappedTodos = useMemo<Todo[]>(() => (leads ?? []).map(leadToTodo), [leads]);
 
-  const [todos, setTodos] = useState<Todo[]>(INIT_TODOS);
+  // INIT_TODOS chỉ dùng làm fallback khi MSW mock đang bật. Prod build kết
+  // nối BE thật → useState rỗng, useLeads() bootstrap data từ API.
+  const [todos, setTodos] = useState<Todo[]>(env.IS_MOCK ? INIT_TODOS : []);
   const [todosBootstrapped, setTodosBootstrapped] = useState(false);
   useEffect(() => {
     if (mappedTodos.length === 0) return;
@@ -438,7 +112,7 @@ export default function App() {
     });
   }, [mappedTodos, todosBootstrapped]);
 
-  const [profileCards, setProfileCards] = useState<Record<number,ProfileCard>>(PROFILE_CARDS_INIT);
+  const [profileCards, setProfileCards] = useState<Record<number, ProfileCard>>(env.IS_MOCK ? PROFILE_CARDS_INIT : {});
   const [activeId, setActiveId] = useState<number|null>(null);
   const [guideChecks, setGuideChecks] = useState<Record<number,Record<number,boolean>>>({});
   // Overlays
