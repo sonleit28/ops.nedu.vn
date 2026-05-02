@@ -175,3 +175,99 @@ export interface KpiTeamData {
   }
   members: KpiTeamMember[]
 }
+
+// ─── UI types (consumer: App.tsx + sub-components) ─────────────────────────
+// Khác với BE types ở trên — đây là shape sau khi mapper transform để render UI
+// hiện tại. leadToTodo() chuyển BE Lead → Todo, toDisplayMembers chuyển
+// KpiTeamMember[] → DisplayTeamMember[].
+
+// Profile = nested birth/personal info trong Todo (khác BE Lead struct).
+export interface Profile {
+  dob: string
+  birthTime: string
+  job: string
+  goal: string
+  pain: string
+  gender?: LeadGender
+}
+
+// Timeline item — mixed event/divider hiển thị trong CallScreen.
+export interface TLItem {
+  icon?: string
+  action?: string
+  date?: string
+  who?: string
+  note?: string
+  isDivider?: boolean
+  label?: string
+}
+
+export interface NoteItem {
+  text: string
+  date: string
+  who: string
+  id?: string
+}
+
+// Todo = UI lead model. Numeric id (deterministic map từ BE UUID), profile
+// nested, timeline mock, done flag... Đây là shape Stable UI; Lead BE map vào.
+export interface Todo {
+  id: number
+  priority: string
+  action: string
+  name: string
+  badge: string
+  badgeColor: string
+  desc: string
+  stage: number
+  phone: string
+  email: string
+  sourceType: string
+  sourceCh: string
+  color: string
+  days: number
+  testScore: number
+  testDesc: string
+  note: string
+  profile: Profile
+  courses: string[]
+  timeline: TLItem[]
+  notes: NoteItem[]
+  done: boolean
+  temperature?: LeadTemperature
+  aiProfileConsent?: boolean
+  codeal?: { name: string; split: number }[]
+  assignedTo?: string
+  // TODO post-refactor: tighten thay any (legacy field, chưa có schema rõ).
+  payment?: unknown
+}
+
+// AI profile card — render trong CallScreen tab AI.
+export interface ProfileCard {
+  gen: boolean
+  // 5-system chip snapshot
+  dm: string      // Bát tự — Day Master (nhut_chu)
+  lp: string      // Thần số học — Life Path
+  nk: string      // Nine Star Ki — year star
+  sun: string     // Cung hoàng đạo — Sun sign
+  menh: string    // Tử vi — Mệnh Cục
+  gua: string     // (legacy, giữ lại cho compat)
+  q: string
+  core: string
+  talk: { y: boolean; t: string }[]
+  need: string
+  timing: string
+  opening: string
+}
+
+// KPI team member sau khi transform từ BE KpiTeamMember → UI shape.
+export interface DisplayTeamMember {
+  id: string
+  name: string
+  role: 'consultant' | 'leader'
+  color: string
+  enrolled: number
+  target: number
+  revenue: number
+  isMe: boolean
+}

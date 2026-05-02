@@ -6,7 +6,20 @@ import { useLeadStream } from '@modules/ops/hooks/useLeadStream';
 import { useCatchUpNotifications } from '@modules/ops/hooks/useCatchUpNotifications';
 import { useAuthStore } from '@modules/auth/stores/useAuthStore';
 import { useNotificationStore } from '@shared/stores/notification-store';
-import type { Lead as BackendLead, LeadTemperature, PipelineStage, ProgramSlug, PaymentMethod, PipelineAction, PersonalProfile as BackendPersonalProfile } from '@modules/ops/types';
+import type {
+  Lead as BackendLead,
+  PipelineStage,
+  ProgramSlug,
+  PaymentMethod,
+  PipelineAction,
+  PersonalProfile as BackendPersonalProfile,
+  Profile,
+  TLItem,
+  NoteItem,
+  Todo,
+  ProfileCard,
+  DisplayTeamMember,
+} from '@modules/ops/types';
 
 // FE course key → BE course.code (cho leads.interested_courses[]).
 // Ngược chiều của COURSE_CODE_TO_UI bên dưới.
@@ -89,33 +102,6 @@ const COURSES = [
   {id:'corp',  name:'Doanh Nghiệp',         emoji:'🏢', desc:'Doanh nghiệp'},
 ];
 
-type Profile = {dob:string; birthTime:string; job:string; goal:string; pain:string; gender?:'male'|'female'};
-type TLItem = {icon?:string; action?:string; date?:string; who?:string; note?:string; isDivider?:boolean; label?:string};
-type NoteItem = {text:string; date:string; who:string; id?:string};
-type Todo = {
-  id:number; priority:string; action:string; name:string;
-  badge:string; badgeColor:string; desc:string; stage:number;
-  phone:string; email:string; sourceType:string; sourceCh:string;
-  color:string; days:number; testScore:number; testDesc:string;
-  note:string; profile:Profile; courses:string[];
-  timeline:TLItem[]; notes:NoteItem[]; done:boolean;
-  temperature?:LeadTemperature;
-  aiProfileConsent?:boolean;
-  codeal?:{name:string,split:number}[];
-  assignedTo?:string; payment?:any;
-};
-type ProfileCard = {
-  gen:boolean;
-  // 5-system chip snapshot
-  dm:string;      // Bát tự — Day Master (nhut_chu)
-  lp:string;      // Thần số học — Life Path
-  nk:string;      // Nine Star Ki — year star
-  sun:string;     // Cung hoàng đạo — Sun sign
-  menh:string;    // Tử vi — Mệnh Cục
-  gua:string;     // (legacy, giữ lại cho compat)
-  q:string; core:string; talk:{y:boolean,t:string}[];
-  need:string; timing:string; opening:string;
-};
 
 const PROFILE_CARDS_INIT: Record<number, ProfileCard> = {
   4:{gen:true,dm:'Giáp Mộc 甲',lp:'6',nk:'Sao 1 Thủy',sun:'Xử Nữ',menh:'Mộc Tam Cục',gua:'7',
@@ -334,17 +320,6 @@ function pickAvatarColor(userId: string): string {
   let h = 0;
   for (let i = 0; i < userId.length; i++) h = (h * 31 + userId.charCodeAt(i)) | 0;
   return TEAM_AVATAR_PALETTE[Math.abs(h) % TEAM_AVATAR_PALETTE.length];
-}
-
-interface DisplayTeamMember {
-  id: string;
-  name: string;
-  role: 'consultant' | 'leader';
-  color: string;
-  enrolled: number;
-  target: number;
-  revenue: number;
-  isMe: boolean;
 }
 
 function toDisplayMembers(members: KpiTeamMember[] | undefined): DisplayTeamMember[] {
