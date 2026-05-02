@@ -104,6 +104,7 @@ export interface PersonalProfile {
   id: string
   lead_id: string
   generated_by_person_id: string
+  generator?: 'stub' | 'vault'
   core_personality: string
   communication_dos: string[]
   communication_donts: string[]

@@ -116,24 +116,24 @@ export default function App() {
   }, [mappedTodos, todosBootstrapped]);
 
   const [profileCards, setProfileCards] = useState<Record<number, ProfileCard>>(env.IS_MOCK ? PROFILE_CARDS_INIT : {});
-  const [activeId, setActiveId] = useState<number|null>(null);
-  const [guideChecks, setGuideChecks] = useState<Record<number,Record<number,boolean>>>({});
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const [guideChecks, setGuideChecks] = useState<Record<number, Record<number, boolean>>>({});
   // Overlays
   const [showCall, setShowCall] = useState(false);
-  const [callId, setCallId] = useState<number|null>(null);
+  const [callId, setCallId] = useState<number | null>(null);
   const [showEnroll, setShowEnroll] = useState(false);
-  const [enrollId, setEnrollId] = useState<number|null>(null);
+  const [enrollId, setEnrollId] = useState<number | null>(null);
   const [showXfer, setShowXfer] = useState(false);
-  const [xferLeadId, setXferLeadId] = useState<number|null>(null);
+  const [xferLeadId, setXferLeadId] = useState<number | null>(null);
   const [showKPI, setShowKPI] = useState(false);
   const [showWin, setShowWin] = useState(false);
-  const [winData, setWinData] = useState({name:'',course:'',amount:0});
+  const [winData, setWinData] = useState({ name: '', course: '', amount: 0 });
   const [showBack, setShowBack] = useState(false);
-  const [backReasonIdx, setBackReasonIdx] = useState<number|null>(null);
+  const [backReasonIdx, setBackReasonIdx] = useState<number | null>(null);
   const [backOther, setBackOther] = useState('');
   // Call screen state
-  const [csTab, setCsTab] = useState<'info'|'profile'>('info');
-  const [editingFields, setEditingFields] = useState<Record<string,boolean>>({});
+  const [csTab, setCsTab] = useState<'info' | 'profile'>('info');
+  const [editingFields, setEditingFields] = useState<Record<string, boolean>>({});
   const [profileDirty, setProfileDirty] = useState(false);
   const [generatingProfile, setGeneratingProfile] = useState(false);
   // Toast: state lifted sang shared notification store. Cùng 1 UI dùng cho
@@ -147,16 +147,16 @@ export default function App() {
   const [payAmount, setPayAmount] = useState('70000000');
   const [payTxn, setPayTxn] = useState('');
   // Xfer state
-  const [xferTab, setXferTab] = useState<'transfer'|'codeal'>('transfer');
+  const [xferTab, setXferTab] = useState<'transfer' | 'codeal'>('transfer');
   const [xferTo, setXferTo] = useState('minh-leader');
   const [xferReason, setXferReason] = useState('');
   const [codealPerson, setCodealPerson] = useState('');
   const [splitMe, setSplitMe] = useState(70);
   const [codealNote, setCodealNote] = useState('');
   // Note editing
-  const [editingNotes, setEditingNotes] = useState<Record<string,string>>({});
+  const [editingNotes, setEditingNotes] = useState<Record<string, string>>({});
   // Confetti
-  const [confetti, setConfetti] = useState<{id:number,left:number,color:string,size:number,dur:number,delay:number,round:boolean}[]>([]);
+  const [confetti, setConfetti] = useState<{ id: number, left: number, color: string, size: number, dur: number, delay: number, round: boolean }[]>([]);
   // E-08 — Team KPI. Chỉ fetch khi panel mở (giữ panel đóng = ko tốn request).
   const qc = useQueryClient();
   const kpiTeamQuery = useKpiTeam(undefined, showKPI);
@@ -193,9 +193,9 @@ export default function App() {
     // Optimistic local update (giữ UX tức thời).
     updateTodo(t.id, old => ({
       ...old, stage: newStage,
-      timeline: [{icon:S_ICONS[newStage-1],action:`Chuyển sang ${S_NAMES[newStage-1]}`,date:nowStr(),who:'Linh Nguyễn',note:''}, ...old.timeline]
+      timeline: [{ icon: S_ICONS[newStage - 1], action: `Chuyển sang ${S_NAMES[newStage - 1]}`, date: nowStr(), who: 'Linh Nguyễn', note: '' }, ...old.timeline]
     }));
-    showToast('→', `Chuyển sang ${S_NAMES[newStage-1]}`, t.name);
+    showToast('→', `Chuyển sang ${S_NAMES[newStage - 1]}`, t.name);
     if (!uuid) return; // lead t\u1ea1o local t\u1eeb INIT_TODOS, kh\u00f4ng c\u00f3 UUID backend
     advanceStageM.mutate(
       { leadId: uuid, direction: 'forward' },
@@ -227,10 +227,10 @@ export default function App() {
     const uuid = UUID_BY_NUMERIC_ID[t.id];
     updateTodo(t.id, old => ({
       ...old, stage: newStage,
-      timeline: [{icon:'↩️',action:`Lùi về ${S_NAMES[newStage-1]}`,date:nowStr(),who:'Linh Nguyễn',note:`Lý do: ${reason}`}, ...old.timeline]
+      timeline: [{ icon: '↩️', action: `Lùi về ${S_NAMES[newStage - 1]}`, date: nowStr(), who: 'Linh Nguyễn', note: `Lý do: ${reason}` }, ...old.timeline]
     }));
     setShowBack(false);
-    showToast('↩','Đã lùi stage', reason);
+    showToast('↩', 'Đã lùi stage', reason);
     if (!uuid) return;
     advanceStageM.mutate(
       { leadId: uuid, direction: 'back', regression_reason: reason },
@@ -254,7 +254,7 @@ export default function App() {
   function saveAndClose() {
     const t = getTodo(callId!);
     setShowCall(false);
-    showToast('💾','Đã lưu hồ sơ', t?.name || '');
+    showToast('💾', 'Đã lưu hồ sơ', t?.name || '');
   }
 
   // ─── ENROLL ────────────────────────────────────────
@@ -276,26 +276,26 @@ export default function App() {
       showToast('⚠️', 'Lead chưa có email', 'Cập nhật email trước khi đánh dấu đã chốt');
       return;
     }
-    const courseMap: Record<string,string> = {lcm:'🌱 Là Chính Mình',adult:'📚 Adult Learning Core',exec:'🎯 Executive Track',short:'⚡ Short Course',corp:'🏢 Corporate'};
+    const courseMap: Record<string, string> = { lcm: '🌱 Là Chính Mình', adult: '📚 Adult Learning Core', exec: '🎯 Executive Track', short: '⚡ Short Course', corp: '🏢 Corporate' };
     const courseName = courseMap[payCourse]?.split('·')[0]?.trim() || 'Là Chính Mình';
     const amount = parseInt(payAmount) || 70000000;
-    const pmLabels: Record<string,string> = {transfer:'Chuyển khoản',card:'Thẻ tín dụng',momo:'Ví điện tử'};
+    const pmLabels: Record<string, string> = { transfer: 'Chuyển khoản', card: 'Thẻ tín dụng', momo: 'Ví điện tử' };
     const uuid = UUID_BY_NUMERIC_ID[t.id];
     const programSlug = COURSE_TO_PROGRAM[payCourse] ?? 'la-chinh-minh';
     const paymentMethod = PAY_METHOD_MAP[payMethod] ?? 'bank_transfer';
 
     const applySuccess = () => {
       updateTodo(t.id, old => ({
-        ...old, stage:5, priority:'week', action:'THEO DÕI', badge:'✅ Đã chốt', badgeColor:'green',
-        desc:'Theo dõi trải nghiệm tuần đầu.',
-        payment:{amount, course:courseName, method:pmLabels[payMethod]||'Chuyển khoản', txn:payTxn, date:nowStr()},
-        timeline:[{icon:'✅',action:`ENROLLED — ${courseName}`,date:nowStr(),who:'Linh Nguyễn',note:`${pmLabels[payMethod]||'Chuyển khoản'} · ${amount.toLocaleString('vi-VN')}₫${payTxn?' · Mã: '+payTxn:''}`}, ...old.timeline]
+        ...old, stage: 5, priority: 'week', action: 'THEO DÕI', badge: '✅ Đã chốt', badgeColor: 'green',
+        desc: 'Theo dõi trải nghiệm tuần đầu.',
+        payment: { amount, course: courseName, method: pmLabels[payMethod] || 'Chuyển khoản', txn: payTxn, date: nowStr() },
+        timeline: [{ icon: '✅', action: `ENROLLED — ${courseName}`, date: nowStr(), who: 'Linh Nguyễn', note: `${pmLabels[payMethod] || 'Chuyển khoản'} · ${amount.toLocaleString('vi-VN')}₫${payTxn ? ' · Mã: ' + payTxn : ''}` }, ...old.timeline]
       }));
       // KPI sẽ tự refetch lần kế khi panel mở; nếu đang mở, invalidate luôn.
       qc.invalidateQueries({ queryKey: ['ops', 'kpi', 'team'] });
       launchConfetti();
       setActiveId(t.id);
-      setTimeout(() => { setWinData({name:t.name, course:courseName, amount}); setShowWin(true); }, 400);
+      setTimeout(() => { setWinData({ name: t.name, course: courseName, amount }); setShowWin(true); }, 400);
     };
 
     const showError = (msg: string) => {
@@ -346,15 +346,15 @@ export default function App() {
     const t = getTodo(xferLeadId!); if (!t) return;
     const uuid = UUID_BY_NUMERIC_ID[t.id];
     if (xferTab === 'codeal') {
-      if (!codealPerson) { showToast('⚠','Chọn người đồng hành',''); return; }
+      if (!codealPerson) { showToast('⚠', 'Chọn người đồng hành', ''); return; }
       const teamPerson = apiTeammates.find(m => m.id === codealPerson);
       const pName = teamPerson?.name || 'Đồng sự';
       // Optimistic
       updateTodo(t.id, old => ({
         ...old,
-        codeal: [...(old.codeal||[]), {name:pName, split:100-splitMe}],
+        codeal: [...(old.codeal || []), { name: pName, split: 100 - splitMe }],
       }));
-      showToast('🤝',`Co-deal với ${pName}`,`Hoa hồng: Linh ${splitMe}% · ${pName} ${100-splitMe}%`);
+      showToast('🤝', `Co-deal với ${pName}`, `Hoa hồng: Linh ${splitMe}% · ${pName} ${100 - splitMe}%`);
       if (uuid) {
         coDealM.mutate(
           {
@@ -367,23 +367,23 @@ export default function App() {
           {
             onError: (err) => {
               // Rollback codeal
-              updateTodo(t.id, old => ({ ...old, codeal: (old.codeal||[]).slice(0, -1) }));
+              updateTodo(t.id, old => ({ ...old, codeal: (old.codeal || []).slice(0, -1) }));
               alert('Co-deal thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
             },
           },
         );
       }
     } else {
-      if (!xferTo) { showToast('⚠','Chọn người nhận',''); return; }
-      if (!xferReason.trim()) { showToast('⚠','Nhập lý do chuyển',''); return; }
+      if (!xferTo) { showToast('⚠', 'Chọn người nhận', ''); return; }
+      if (!xferReason.trim()) { showToast('⚠', 'Nhập lý do chuyển', ''); return; }
       const toMember = apiTeammates.find(m => m.id === xferTo);
       const toName = toMember?.name || 'Đồng đội';
       const prevAssigned = t.assignedTo;
       // Optimistic
       updateTodo(t.id, old => ({
-        ...old, assignedTo:toName, priority:'done', done:true,
+        ...old, assignedTo: toName, priority: 'done', done: true,
       }));
-      showToast('↔','Đã chuyển case',`${t.name} → ${toName}`);
+      showToast('↔', 'Đã chuyển case', `${t.name} → ${toName}`);
       if (uuid) {
         transferM.mutate(
           { leadId: uuid, to_user_id: xferTo, reason: xferReason.trim() },
@@ -401,12 +401,12 @@ export default function App() {
 
   // ─── CONFETTI ──────────────────────────────────────
   function launchConfetti() {
-    const colors = ['#059669','#F59E0B','#EF4444','#3B82F6','#8B5CF6'];
-    const items = Array.from({length:60},(_,i) => ({
-      id:i, left:Math.random()*100,
-      color:colors[Math.floor(Math.random()*colors.length)],
-      size:6+Math.random()*6, dur:1.5+Math.random()*1.5,
-      delay:Math.random()*0.4, round:Math.random()>0.5
+    const colors = ['#059669', '#F59E0B', '#EF4444', '#3B82F6', '#8B5CF6'];
+    const items = Array.from({ length: 60 }, (_, i) => ({
+      id: i, left: Math.random() * 100,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 6 + Math.random() * 6, dur: 1.5 + Math.random() * 1.5,
+      delay: Math.random() * 0.4, round: Math.random() > 0.5
     }));
     setConfetti(items);
     setTimeout(() => setConfetti([]), 3000);
@@ -481,11 +481,11 @@ export default function App() {
   function savePF(tid: number, key: string, val: string) {
     const trimmed = val.trim();
     updateTodo(tid, old => ({
-      ...old, profile:{...old.profile, [key]:trimmed}
+      ...old, profile: { ...old.profile, [key]: trimmed }
     }));
-    setEditingFields(prev => ({...prev, [`${tid}-${key}`]:false}));
+    setEditingFields(prev => ({ ...prev, [`${tid}-${key}`]: false }));
     markDirtyIfGenerated(tid);
-    if (trimmed) showToast('✅','Đã lưu', key + ' đã cập nhật');
+    if (trimmed) showToast('✅', 'Đã lưu', key + ' đã cập nhật');
     const backendField = PF_KEY_MAP[key];
     if (!backendField || !trimmed) return;
     // Normalize dd/mm/yyyy -> yyyy-mm-dd cho birth_date
@@ -501,13 +501,13 @@ export default function App() {
     if (!trimmed) return;
     updateTodo(tid, old => ({
       ...old,
-      name: key==='name' ? trimmed : old.name,
-      phone: key==='phone' ? trimmed : old.phone,
-      email: key==='email' ? trimmed : old.email,
+      name: key === 'name' ? trimmed : old.name,
+      phone: key === 'phone' ? trimmed : old.phone,
+      email: key === 'email' ? trimmed : old.email,
     }));
-    setEditingFields(prev => ({...prev, [`basic-${tid}-${key}`]:false}));
+    setEditingFields(prev => ({ ...prev, [`basic-${tid}-${key}`]: false }));
     markDirtyIfGenerated(tid);
-    showToast('✅','Đã cập nhật', `${key} → ${trimmed}`);
+    showToast('✅', 'Đã cập nhật', `${key} → ${trimmed}`);
     const backendField = BASIC_KEY_MAP[key];
     if (!backendField) return;
     patchLeadField(tid, backendField, trimmed, key);
@@ -524,16 +524,18 @@ export default function App() {
       setTimeout(() => {
         setProfileCards(prev => ({
           ...prev,
-          [id]:{gen:true,dm:'Nhâm Thủy 壬',lp:'5',nk:'Sao 5 Thổ',sun:'Cự Giải',menh:'Thủy Nhị Cục',gua:'4',
-            q:'"Dòng sông sâu không ồn ào — sức mạnh nằm trong chiều sâu."',
-            core:'Nhâm Thủy nhật chủ — chiều sâu nội tâm lớn. Quyết định bằng cảm nhận + logic.',
-            talk:[{y:true,t:'<strong>Cho thời gian suy nghĩ.</strong>'},{y:false,t:'<strong>Tránh:</strong> ép quyết định.'}],
-            need:'Đang tìm sự bình yên nội tâm.',
-            timing:'2026 — năm chuyển hóa.',
-            opening:'"Em thấy anh/chị đang tìm điều gì đó sâu hơn..."'}
+          [id]: {
+            gen: true, dm: 'Nhâm Thủy 壬', lp: '5', nk: 'Sao 5 Thổ', sun: 'Cự Giải', menh: 'Thủy Nhị Cục', gua: '4',
+            q: '"Dòng sông sâu không ồn ào — sức mạnh nằm trong chiều sâu."',
+            core: 'Nhâm Thủy nhật chủ — chiều sâu nội tâm lớn. Quyết định bằng cảm nhận + logic.',
+            talk: [{ y: true, t: '<strong>Cho thời gian suy nghĩ.</strong>' }, { y: false, t: '<strong>Tránh:</strong> ép quyết định.' }],
+            need: 'Đang tìm sự bình yên nội tâm.',
+            timing: '2026 — năm chuyển hóa.',
+            opening: '"Em thấy anh/chị đang tìm điều gì đó sâu hơn..."'
+          }
         }));
         setGeneratingProfile(false);
-        showToast('✨','Hồ sơ AI đã tạo!','Xem tab Hồ sơ AI');
+        showToast('✨', 'Hồ sơ AI đã tạo!', 'Xem tab Hồ sơ AI');
       }, 800);
       return;
     }
@@ -578,13 +580,13 @@ export default function App() {
     const uuid = UUID_BY_NUMERIC_ID[tid];
     // Optimistic: thêm note vào list ngay, gán id tạm. Khi API OK, update id thật.
     const tempId = `temp-${Date.now()}`;
-    const note: NoteItem = {text:trimmed, date:nowStr(), who:'Linh Nguyễn', id:tempId};
+    const note: NoteItem = { text: trimmed, date: nowStr(), who: 'Linh Nguyễn', id: tempId };
     updateTodo(tid, old => ({
       ...old,
       notes: [note, ...old.notes],
-      timeline: [{icon:'📝',action:'Ghi chú cho người kế tiếp',date:nowStr(),who:'Linh Nguyễn',note:trimmed}, ...old.timeline]
+      timeline: [{ icon: '📝', action: 'Ghi chú cho người kế tiếp', date: nowStr(), who: 'Linh Nguyễn', note: trimmed }, ...old.timeline]
     }));
-    showToast('📝','Ghi chú đã lưu','Người kế tiếp sẽ đọc được này');
+    showToast('📝', 'Ghi chú đã lưu', 'Người kế tiếp sẽ đọc được này');
     if (!uuid) return;
     createNoteM.mutate(
       { leadId: uuid, content: trimmed },
@@ -619,10 +621,10 @@ export default function App() {
     const noteUuid = resolveNoteId(tid, idx);
     updateTodo(tid, old => {
       const notes = [...old.notes];
-      notes[idx] = {...notes[idx], text:trimmed};
-      return {...old, notes};
+      notes[idx] = { ...notes[idx], text: trimmed };
+      return { ...old, notes };
     });
-    setEditingNotes(prev => {const n={...prev};delete n[`${tid}-${idx}`];return n;});
+    setEditingNotes(prev => { const n = { ...prev }; delete n[`${tid}-${idx}`]; return n; });
     if (!uuid || !noteUuid || noteUuid.startsWith('temp-')) return;
     updateNoteM.mutate(
       { leadId: uuid, noteId: noteUuid, content: trimmed },
@@ -636,9 +638,9 @@ export default function App() {
   function deleteNote(tid: number, idx: number) {
     const uuid = UUID_BY_NUMERIC_ID[tid];
     const noteUuid = resolveNoteId(tid, idx);
-    updateTodo(tid, old => ({...old, notes:old.notes.filter((_,i)=>i!==idx)}));
-    setEditingNotes(prev => {const n={...prev};delete n[`${tid}-${idx}`];return n;});
-    showToast('🗑','Đã xóa ghi chú','');
+    updateTodo(tid, old => ({ ...old, notes: old.notes.filter((_, i) => i !== idx) }));
+    setEditingNotes(prev => { const n = { ...prev }; delete n[`${tid}-${idx}`]; return n; });
+    showToast('🗑', 'Đã xóa ghi chú', '');
     if (!uuid || !noteUuid || noteUuid.startsWith('temp-')) return;
     deleteNoteM.mutate(
       { leadId: uuid, noteId: noteUuid },
@@ -659,7 +661,7 @@ export default function App() {
     const prevCourses = t.courses;
     // Optimistic
     updateTodo(tid, old => ({ ...old, courses: nextCourses }));
-    const c = COURSES.find(x=>x.id===courseId);
+    const c = COURSES.find(x => x.id === courseId);
     if (c) showToast(c.emoji, adding ? `Đã thêm ${c.name}` : `Đã bỏ ${c.name}`, '');
 
     const uuid = UUID_BY_NUMERIC_ID[tid];
@@ -681,12 +683,12 @@ export default function App() {
   function toggleGuide(tid: number, idx: number) {
     setGuideChecks(prev => ({
       ...prev,
-      [tid]:{...(prev[tid]||{}), [idx]:!(prev[tid]||{})[idx]}
+      [tid]: { ...(prev[tid] || {}), [idx]: !(prev[tid] || {})[idx] }
     }));
   }
   function toggleDone(e: React.MouseEvent, id: number) {
     e.stopPropagation();
-    updateTodo(id, old => ({...old, done:!old.done}));
+    updateTodo(id, old => ({ ...old, done: !old.done }));
   }
 
   // ─── COMPUTED ─────────────────────────────────────
@@ -794,14 +796,14 @@ export default function App() {
   const loadColor = activeLoad >= LOAD_CAPACITY
     ? 'var(--red)'
     : activeLoad >= LOAD_CAPACITY * 0.8
-    ? 'var(--amber)'
-    : 'var(--nedu)';
+      ? 'var(--amber)'
+      : 'var(--nedu)';
   const callTodoRaw = getTodo(callId!);
   const callTodo = callTodoRaw && callTodoRaw.id === activeId
     ? (activeTodoWithNotes ?? callTodoRaw)
     : callTodoRaw;
 
-  const todayDate = new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'long'});
+  const todayDate = new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' });
 
   // ─── FUNNEL MINI ──────────────────────────────────
   const currentLayer = activeTodo ? getFunnelLayer(activeTodo.stage) : null;
@@ -810,13 +812,13 @@ export default function App() {
   // Số liệu summary lấy thẳng từ API (đã tính ở BE để mọi client thống nhất);
   // chỉ fallback compute từ members nếu BE không trả summary.
   const kpiSummary = kpiTeamQuery.data?.summary;
-  const totalTarget = kpiSummary?.monthly_target ?? teamMembers.reduce((s,m)=>s+m.target,0);
-  const totalEnrolled = kpiSummary?.enrolled_this_month ?? teamMembers.reduce((s,m)=>s+m.enrolled,0);
-  const totalRevenue = kpiSummary?.monthly_revenue_vnd ?? teamMembers.reduce((s,m)=>s+m.revenue,0);
-  const totalActiveLeads = kpiSummary?.active_leads ?? todos.filter(t=>!t.done).length;
-  const conversionRate = kpiSummary?.conversion_rate ?? Math.round((totalEnrolled/Math.max(todos.length,1))*100);
-  const kpiPct = totalTarget > 0 ? Math.round((totalEnrolled/totalTarget)*100) : 0;
-  const sortedTeam = [...teamMembers].sort((a,b)=>b.enrolled-a.enrolled);
+  const totalTarget = kpiSummary?.monthly_target ?? teamMembers.reduce((s, m) => s + m.target, 0);
+  const totalEnrolled = kpiSummary?.enrolled_this_month ?? teamMembers.reduce((s, m) => s + m.enrolled, 0);
+  const totalRevenue = kpiSummary?.monthly_revenue_vnd ?? teamMembers.reduce((s, m) => s + m.revenue, 0);
+  const totalActiveLeads = kpiSummary?.active_leads ?? todos.filter(t => !t.done).length;
+  const conversionRate = kpiSummary?.conversion_rate ?? Math.round((totalEnrolled / Math.max(todos.length, 1)) * 100);
+  const kpiPct = totalTarget > 0 ? Math.round((totalEnrolled / totalTarget) * 100) : 0;
+  const sortedTeam = [...teamMembers].sort((a, b) => b.enrolled - a.enrolled);
 
   // ─── RENDER ───────────────────────────────────────
   if (leadsLoading && !todosBootstrapped) {
@@ -839,45 +841,45 @@ export default function App() {
       {/* TOPBAR */}
       <div className="topbar">
         <div className="logo">Nedu<span>ops</span></div>
-        <div className="tb-spacer"/>
+        <div className="tb-spacer" />
         <div className="funnel-mini">
           {FUNNEL_LAYERS.map(l => (
-            <div key={l.id} className={`fm-step${currentLayer?.id===l.id?' active':''}`}
-              style={currentLayer?.id===l.id?{background:l.color}:{}}>
+            <div key={l.id} className={`fm-step${currentLayer?.id === l.id ? ' active' : ''}`}
+              style={currentLayer?.id === l.id ? { background: l.color } : {}}>
               {l.short}
             </div>
           ))}
         </div>
-        <div style={{width:8}}/>
-        <div className="tb-greeting">Chào sáng, <em>{userFirstName}</em> ☀️</div>
-        <div style={{width:8}}/>
-        <button className="btn btn-ghost btn-sm" onClick={()=>setShowKPI(true)}>📊 KPI Đội</button>
-        <div style={{width:6}}/>
-        <div ref={userMenuRef} style={{position:'relative'}}>
+        <div style={{ width: 8 }} />
+        <div className="tb-greeting">Xin chào, <em>{userFirstName}</em> ☀️</div>
+        <div style={{ width: 8 }} />
+        <button className="btn btn-ghost btn-sm" onClick={() => setShowKPI(true)}>📊 KPI Đội</button>
+        <div style={{ width: 6 }} />
+        <div ref={userMenuRef} style={{ position: 'relative' }}>
           <div
             className="tb-avatar"
             role="button"
             tabIndex={0}
             title={user?.email ?? ''}
-            onClick={()=>setShowUserMenu(v=>!v)}
-            onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setShowUserMenu(v=>!v);}}}
-            style={{cursor:'pointer'}}
+            onClick={() => setShowUserMenu(v => !v)}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowUserMenu(v => !v); } }}
+            style={{ cursor: 'pointer' }}
           >
             {userInitial}
           </div>
           {showUserMenu && (
             <div
               style={{
-                position:'absolute',top:'calc(100% + 6px)',right:0,minWidth:220,
-                background:'var(--wh,#fff)',border:'1px solid var(--stone2,#e5e7eb)',
-                borderRadius:10,boxShadow:'0 8px 24px rgba(0,0,0,.12)',padding:6,zIndex:1000,
+                position: 'absolute', top: 'calc(100% + 6px)', right: 0, minWidth: 220,
+                background: 'var(--wh,#fff)', border: '1px solid var(--stone2,#e5e7eb)',
+                borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.12)', padding: 6, zIndex: 1000,
               }}
             >
-              <div style={{padding:'8px 10px',borderBottom:'1px solid var(--stone2,#e5e7eb)',marginBottom:4}}>
-                <div style={{fontSize:12,fontWeight:700,color:'var(--t1,#111)'}}>{user?.full_name ?? 'Người dùng'}</div>
-                <div style={{fontSize:11,color:'var(--t3,#6b7280)'}}>{user?.email ?? ''}</div>
+              <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--stone2,#e5e7eb)', marginBottom: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t1,#111)' }}>{user?.full_name ?? 'Người dùng'}</div>
+                <div style={{ fontSize: 11, color: 'var(--t3,#6b7280)' }}>{user?.email ?? ''}</div>
                 {user?.primary_role && (
-                  <div style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--t3,#6b7280)',marginTop:2,textTransform:'uppercase'}}>
+                  <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--t3,#6b7280)', marginTop: 2, textTransform: 'uppercase' }}>
                     {user.primary_role}
                   </div>
                 )}
@@ -885,11 +887,11 @@ export default function App() {
               <button
                 onClick={handleLogout}
                 style={{
-                  width:'100%',textAlign:'left',background:'transparent',border:'none',
-                  padding:'8px 10px',borderRadius:6,cursor:'pointer',fontSize:13,color:'var(--red,#DC2626)',
+                  width: '100%', textAlign: 'left', background: 'transparent', border: 'none',
+                  padding: '8px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: 'var(--red,#DC2626)',
                 }}
-                onMouseEnter={e=>{e.currentTarget.style.background='var(--red-s,#FEE2E2)';}}
-                onMouseLeave={e=>{e.currentTarget.style.background='transparent';}}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--red-s,#FEE2E2)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
               >
                 🚪 Đăng xuất
               </button>
@@ -908,28 +910,28 @@ export default function App() {
             <div className="load-bar-wrap">
               <div className="lb-row">
                 <span className="lb-label">Tải công việc</span>
-                <span className="lb-num" style={{color: loadColor}}>{activeLoad}<span style={{fontSize:10,color:'var(--t3)'}}>/{LOAD_CAPACITY}</span></span>
+                <span className="lb-num" style={{ color: loadColor }}>{activeLoad}<span style={{ fontSize: 10, color: 'var(--t3)' }}>/{LOAD_CAPACITY}</span></span>
               </div>
-              <div className="lb-track"><div className="lb-fill" style={{width:`${loadPct}%`,background:loadColor}}/></div>
+              <div className="lb-track"><div className="lb-fill" style={{ width: `${loadPct}%`, background: loadColor }} /></div>
             </div>
           </div>
           {/* Urgent section */}
           <div className="section-label">
-            <div className="sl-dot" style={{background:'var(--red)'}}/>
+            <div className="sl-dot" style={{ background: 'var(--red)' }} />
             Khẩn cấp
-            <div className="sl-count" style={{background:'var(--red-s)',color:'var(--red)'}}>
-              {urgent.filter(t=>!t.done).length}
+            <div className="sl-count" style={{ background: 'var(--red-s)', color: 'var(--red)' }}>
+              {urgent.filter(t => !t.done).length}
             </div>
           </div>
           <div className="action-list">
-            {urgent.map(t => <LeadCard key={t.id} t={t} activeId={activeId} onSelect={setActiveId} onToggleDone={toggleDone}/>)}
+            {urgent.map(t => <LeadCard key={t.id} t={t} activeId={activeId} onSelect={setActiveId} onToggleDone={toggleDone} />)}
             {/* Today section */}
             <div className="section-label">
-              <div className="sl-dot" style={{background:'var(--amber)'}}/>
+              <div className="sl-dot" style={{ background: 'var(--amber)' }} />
               Hôm nay
-              <div className="sl-count">{today.filter(t=>!t.done).length}</div>
+              <div className="sl-count">{today.filter(t => !t.done).length}</div>
             </div>
-            {today.map(t => <LeadCard key={t.id} t={t} activeId={activeId} onSelect={setActiveId} onToggleDone={toggleDone}/>)}
+            {today.map(t => <LeadCard key={t.id} t={t} activeId={activeId} onSelect={setActiveId} onToggleDone={toggleDone} />)}
           </div>
         </div>
 
@@ -942,43 +944,43 @@ export default function App() {
               <div className="es-sub">Click vào lead để xem hướng dẫn từng bước</div>
             </div>
           ) : (
-            <div style={{display:'flex',flex:1,flexDirection:'column',overflow:'hidden'}}>
+            <div style={{ display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
               {/* Lead Hero */}
-              <LeadHero t={activeTodo} onCall={openCall} onXfer={openXfer} onEnroll={openEnroll}/>
+              <LeadHero t={activeTodo} onCall={openCall} onXfer={openXfer} onEnroll={openEnroll} />
               {/* Funnel Bar */}
-              <FunnelBar t={activeTodo}/>
+              <FunnelBar t={activeTodo} />
               {/* Stage Nav */}
               <div className="stage-nav">
                 <button
                   className="sn-back"
                   disabled={!canGoBack(activeTodo.stage)}
                   onClick={openBackPopover}
-                  title={activeTodo.stage===5 ? 'Đã chốt — không thể lùi giai đoạn' : undefined}
+                  title={activeTodo.stage === 5 ? 'Đã chốt — không thể lùi giai đoạn' : undefined}
                 >
-                  {activeTodo.stage<=1
+                  {activeTodo.stage <= 1
                     ? '← Đầu funnel'
-                    : activeTodo.stage===5
-                    ? '🔒 Đã chốt — khoá lùi'
-                    : `← ${S_NAMES[activeTodo.stage-2]}`}
+                    : activeTodo.stage === 5
+                      ? '🔒 Đã chốt — khoá lùi'
+                      : `← ${S_NAMES[activeTodo.stage - 2]}`}
                 </button>
                 <div className="sn-stages">
-                  {S_NAMES.map((s,i) => {
-                    const n=i+1, done=n<activeTodo.stage, cur=n===activeTodo.stage;
+                  {S_NAMES.map((s, i) => {
+                    const n = i + 1, done = n < activeTodo.stage, cur = n === activeTodo.stage;
                     return (
-                      <div key={n} className={`sn-step${done?' done':''}${cur?' current':''}`}
+                      <div key={n} className={`sn-step${done ? ' done' : ''}${cur ? ' current' : ''}`}
                         title={`Chuyển sang ${s}`}>
-                        <div className="sn-dot">{done?'✓':cur?S_ICONS[i]:n}</div>
+                        <div className="sn-dot">{done ? '✓' : cur ? S_ICONS[i] : n}</div>
                         <div className="sn-label">{s}</div>
                       </div>
                     );
                   })}
                 </div>
-                {activeTodo.stage>=6 ? (
+                {activeTodo.stage >= 6 ? (
                   <button className="sn-next" disabled>Cuối funnel ✓</button>
-                ) : activeTodo.stage===4 ? (
+                ) : activeTodo.stage === 4 ? (
                   <button className="sn-next enroll-stage" onClick={doNext}>✅ Đánh dấu đã chốt</button>
                 ) : (
-                  <button className={`sn-next${activeTodo.stage===3?' close-stage':''}`} onClick={doNext}>
+                  <button className={`sn-next${activeTodo.stage === 3 ? ' close-stage' : ''}`} onClick={doNext}>
                     {NEXT_LABELS[activeTodo.stage]}
                   </button>
                 )}
@@ -987,16 +989,16 @@ export default function App() {
               <div className="center-body">
                 <CenterBody
                   t={activeTodoWithNotes ?? activeTodo}
-                  guideChecks={guideChecks[activeTodo.id]||{}}
+                  guideChecks={guideChecks[activeTodo.id] || {}}
                   profileCards={profileCards}
-                  onToggleGuide={(idx)=>toggleGuide(activeTodo.id,idx)}
-                  onSendNote={(text)=>sendNote(activeTodo.id,text)}
-                  onEditNote={(idx,val)=>saveNoteEdit(activeTodo.id,idx,val)}
-                  onDeleteNote={(idx)=>deleteNote(activeTodo.id,idx)}
-                  onToggleCourse={(cid)=>toggleCourse(activeTodo.id,cid)}
+                  onToggleGuide={(idx) => toggleGuide(activeTodo.id, idx)}
+                  onSendNote={(text) => sendNote(activeTodo.id, text)}
+                  onEditNote={(idx, val) => saveNoteEdit(activeTodo.id, idx, val)}
+                  onDeleteNote={(idx) => deleteNote(activeTodo.id, idx)}
+                  onToggleCourse={(cid) => toggleCourse(activeTodo.id, cid)}
                   editingNotes={editingNotes}
-                  onStartEditNote={(idx,val)=>setEditingNotes(prev=>({...prev,[`${activeTodo.id}-${idx}`]:val}))}
-                  onCancelEditNote={(idx)=>setEditingNotes(prev=>{const n={...prev};delete n[`${activeTodo.id}-${idx}`];return n;})}
+                  onStartEditNote={(idx, val) => setEditingNotes(prev => ({ ...prev, [`${activeTodo.id}-${idx}`]: val }))}
+                  onCancelEditNote={(idx) => setEditingNotes(prev => { const n = { ...prev }; delete n[`${activeTodo.id}-${idx}`]; return n; })}
                 />
               </div>
             </div>
@@ -1006,26 +1008,26 @@ export default function App() {
 
       {/* BACK REASON POPOVER */}
       {showBack && (
-        <div className="back-popover" onClick={e=>{if(e.target===e.currentTarget)setShowBack(false)}}>
+        <div className="back-popover" onClick={e => { if (e.target === e.currentTarget) setShowBack(false) }}>
           <div className="back-card">
             <div className="bc-icon">↩️</div>
-            <div className="bc-title">Lùi về {activeTodo ? S_NAMES[activeTodo.stage-2] : 'stage trước'}?</div>
+            <div className="bc-title">Lùi về {activeTodo ? S_NAMES[activeTodo.stage - 2] : 'stage trước'}?</div>
             <div className="bc-sub">Chọn lý do — người kế tiếp sẽ đọc được điều này</div>
             <div className="bc-reasons">
-              {BACK_REASONS.map((r,i) => (
-                <div key={i} className={`bc-reason${backReasonIdx===i?' selected':''}`} onClick={()=>setBackReasonIdx(i)}>
-                  <span style={{fontSize:16}}>{r.icon}</span><span>{r.label}</span>
+              {BACK_REASONS.map((r, i) => (
+                <div key={i} className={`bc-reason${backReasonIdx === i ? ' selected' : ''}`} onClick={() => setBackReasonIdx(i)}>
+                  <span style={{ fontSize: 16 }}>{r.icon}</span><span>{r.label}</span>
                 </div>
               ))}
-              {backReasonIdx===5 && (
-                <textarea style={{width:'100%',border:'1.5px solid var(--stone2)',borderRadius:'var(--rads)',padding:'8px 11px',fontSize:13,fontFamily:'Be Vietnam Pro,sans-serif',color:'var(--t1)',resize:'none',outline:'none',background:'var(--bg)',minHeight:64,lineHeight:1.6,marginTop:8}}
+              {backReasonIdx === 5 && (
+                <textarea style={{ width: '100%', border: '1.5px solid var(--stone2)', borderRadius: 'var(--rads)', padding: '8px 11px', fontSize: 13, fontFamily: 'Be Vietnam Pro,sans-serif', color: 'var(--t1)', resize: 'none', outline: 'none', background: 'var(--bg)', minHeight: 64, lineHeight: 1.6, marginTop: 8 }}
                   placeholder="Mô tả lý do cụ thể..."
-                  value={backOther} onChange={e=>setBackOther(e.target.value)}/>
+                  value={backOther} onChange={e => setBackOther(e.target.value)} />
               )}
             </div>
             <div className="bc-btns">
-              <button className="btn btn-ghost" style={{flex:1,justifyContent:'center'}} onClick={()=>setShowBack(false)}>Hủy</button>
-              <button className="btn btn-danger" style={{flex:1,justifyContent:'center'}} onClick={executeBack}>↩ Xác nhận lùi</button>
+              <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setShowBack(false)}>Hủy</button>
+              <button className="btn btn-danger" style={{ flex: 1, justifyContent: 'center' }} onClick={executeBack}>↩ Xác nhận lùi</button>
             </div>
           </div>
         </div>
@@ -1041,23 +1043,23 @@ export default function App() {
           onSaveClose={saveAndClose}
           profileCards={profileCards}
           editingFields={editingFields}
-          onEditField={(key)=>setEditingFields(prev=>({...prev,[key]:true}))}
+          onEditField={(key) => setEditingFields(prev => ({ ...prev, [key]: true }))}
           onSavePF={savePF}
           onSaveBasic={saveBasicField}
           onSetGender={setGender}
           onSetConsent={setConsent}
-          onMarkDirty={()=>markDirtyIfGenerated(callTodo.id)}
+          onMarkDirty={() => markDirtyIfGenerated(callTodo.id)}
           profileDirty={profileDirty}
           generatingProfile={generatingProfile}
           onGenProfile={genProfile}
-          onRegenProfile={(id)=>{setProfileDirty(false);genProfile(id, true);showToast('↻','Đang cập nhật Profile...','Dựa trên thông tin mới nhất');}}
-          onSendNote={(text)=>sendNote(callTodo.id,text)}
-          onEditNote={(idx,val)=>saveNoteEdit(callTodo.id,idx,val)}
-          onDeleteNote={(idx)=>deleteNote(callTodo.id,idx)}
-          onToggleCourse={(cid)=>toggleCourse(callTodo.id,cid)}
+          onRegenProfile={(id) => { setProfileDirty(false); genProfile(id, true); showToast('↻', 'Đang cập nhật Profile...', 'Dựa trên thông tin mới nhất'); }}
+          onSendNote={(text) => sendNote(callTodo.id, text)}
+          onEditNote={(idx, val) => saveNoteEdit(callTodo.id, idx, val)}
+          onDeleteNote={(idx) => deleteNote(callTodo.id, idx)}
+          onToggleCourse={(cid) => toggleCourse(callTodo.id, cid)}
           editingNotes={editingNotes}
-          onStartEditNote={(idx,val)=>setEditingNotes(prev=>({...prev,[`${callTodo.id}-${idx}`]:val}))}
-          onCancelEditNote={(idx)=>setEditingNotes(prev=>{const n={...prev};delete n[`${callTodo.id}-${idx}`];return n;})}
+          onStartEditNote={(idx, val) => setEditingNotes(prev => ({ ...prev, [`${callTodo.id}-${idx}`]: val }))}
+          onCancelEditNote={(idx) => setEditingNotes(prev => { const n = { ...prev }; delete n[`${callTodo.id}-${idx}`]; return n; })}
         />
       )}
 
@@ -1067,27 +1069,27 @@ export default function App() {
         if (!et) return null;
         const missingEmail = !et.email || !et.email.trim();
         return (
-          <div className="enroll-ov" onClick={e=>{if(e.target===e.currentTarget)setShowEnroll(false)}}>
+          <div className="enroll-ov" onClick={e => { if (e.target === e.currentTarget) setShowEnroll(false) }}>
             <div className="enroll-m">
               <div className="em-icon">🎉</div>
               <div className="em-title">Xác nhận đã chốt!</div>
               <div className="em-sub">Đánh dấu lead đã thanh toán để consultant và hệ thống theo dõi.</div>
               {missingEmail && (
-                <div style={{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.35)',color:'var(--red,#dc2626)',padding:'10px 12px',borderRadius:8,fontSize:13,marginBottom:12}}>
+                <div style={{ background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.35)', color: 'var(--red,#dc2626)', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 12 }}>
                   ⚠️ Lead chưa có email — cập nhật email trước khi đánh dấu đã chốt.
                 </div>
               )}
               <div className="em-info">
                 <div className="er-row"><span className="er-key">Học viên</span><span className="er-val">{et.name}</span></div>
-                <div className="er-row"><span className="er-key">Email</span><span className="er-val" style={missingEmail?{color:'var(--red,#dc2626)'}:undefined}>{et.email || '— chưa có —'}</span></div>
+                <div className="er-row"><span className="er-key">Email</span><span className="er-val" style={missingEmail ? { color: 'var(--red,#dc2626)' } : undefined}>{et.email || '— chưa có —'}</span></div>
                 <div className="er-row"><span className="er-key">Chương trình</span><span className="er-val">Adult Learning</span></div>
-                <div className="er-row"><span className="er-key">Học phí</span><span className="er-val" style={{color:'var(--green)'}}>70,000,000 ₫</span></div>
+                <div className="er-row"><span className="er-key">Học phí</span><span className="er-val" style={{ color: 'var(--green)' }}>70,000,000 ₫</span></div>
               </div>
               <div className="pay-block">
                 <div className="pay-blk-title">💳 Thông tin thanh toán</div>
                 <div className="pay-field">
                   <label>Khóa học đã đăng ký</label>
-                  <select className="pay-select" value={payCourse} onChange={e=>setPayCourse(e.target.value)}>
+                  <select className="pay-select" value={payCourse} onChange={e => setPayCourse(e.target.value)}>
                     <option value="lcm">🌱 Là Chính Mình · 70,000,000 ₫</option>
                     <option value="adult">📚 Adult Learning Core · 70,000,000 ₫</option>
                     <option value="exec">🎯 Executive Track · 120,000,000 ₫</option>
@@ -1097,24 +1099,24 @@ export default function App() {
                 </div>
                 <div className="pay-field">
                   <label>Số tiền đã nhận (₫)</label>
-                  <input type="number" className="pay-inp" value={payAmount} onChange={e=>setPayAmount(e.target.value)} placeholder="70000000"/>
+                  <input type="number" className="pay-inp" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="70000000" />
                 </div>
                 <div className="pay-field">
                   <label>Hình thức thanh toán</label>
                   <div className="pm-row">
-                    {[{v:'transfer',l:'🏦 Chuyển khoản'},{v:'card',l:'💳 Thẻ tín dụng'},{v:'momo',l:'📱 Ví điện tử'}].map(pm => (
-                      <div key={pm.v} className={`pm-chip${payMethod===pm.v?' sel':''}`} onClick={()=>setPayMethod(pm.v)}>{pm.l}</div>
+                    {[{ v: 'transfer', l: '🏦 Chuyển khoản' }, { v: 'card', l: '💳 Thẻ tín dụng' }, { v: 'momo', l: '📱 Ví điện tử' }].map(pm => (
+                      <div key={pm.v} className={`pm-chip${payMethod === pm.v ? ' sel' : ''}`} onClick={() => setPayMethod(pm.v)}>{pm.l}</div>
                     ))}
                   </div>
                 </div>
                 <div className="pay-field">
                   <label>Mã giao dịch (nếu có)</label>
-                  <input type="text" className="pay-inp" value={payTxn} onChange={e=>setPayTxn(e.target.value)} placeholder="VD: FT26040612345 hoặc để trống"/>
+                  <input type="text" className="pay-inp" value={payTxn} onChange={e => setPayTxn(e.target.value)} placeholder="VD: FT26040612345 hoặc để trống" />
                 </div>
               </div>
               <div className="em-btns">
-                <button className="btn btn-ghost" onClick={()=>setShowEnroll(false)}>Hủy</button>
-                <button className="btn btn-primary" style={{flex:2,justifyContent:'center',opacity:missingEmail?0.5:1,cursor:missingEmail?'not-allowed':'pointer'}} disabled={missingEmail} onClick={confirmEnroll}>✅ Xác nhận đã thanh toán</button>
+                <button className="btn btn-ghost" onClick={() => setShowEnroll(false)}>Hủy</button>
+                <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center', opacity: missingEmail ? 0.5 : 1, cursor: missingEmail ? 'not-allowed' : 'pointer' }} disabled={missingEmail} onClick={confirmEnroll}>✅ Xác nhận đã thanh toán</button>
               </div>
             </div>
           </div>
@@ -1123,19 +1125,19 @@ export default function App() {
 
       {/* XFER MODAL */}
       {showXfer && (
-        <div className="xfer-ov" onClick={e=>{if(e.target===e.currentTarget)setShowXfer(false)}}>
+        <div className="xfer-ov" onClick={e => { if (e.target === e.currentTarget) setShowXfer(false) }}>
           <div className="xfer-modal">
-            <div style={{fontSize:26,marginBottom:8}}>↔️</div>
+            <div style={{ fontSize: 26, marginBottom: 8 }}>↔️</div>
             <div className="xm-title">Chuyển case / Co-deal</div>
-            <div className="xm-sub">Lead: {getTodo(xferLeadId!)?.name||''}</div>
+            <div className="xm-sub">Lead: {getTodo(xferLeadId!)?.name || ''}</div>
             <div className="xm-tabs">
-              <div className={`xm-tab${xferTab==='transfer'?' on':''}`} onClick={()=>setXferTab('transfer')}>↔ Chuyển case</div>
-              <div className={`xm-tab${xferTab==='codeal'?' on':''}`} onClick={()=>setXferTab('codeal')}>🤝 Co-deal</div>
+              <div className={`xm-tab${xferTab === 'transfer' ? ' on' : ''}`} onClick={() => setXferTab('transfer')}>↔ Chuyển case</div>
+              <div className={`xm-tab${xferTab === 'codeal' ? ' on' : ''}`} onClick={() => setXferTab('codeal')}>🤝 Co-deal</div>
             </div>
             {xferTab === 'transfer' && (
               <div>
                 <div className="xm-label">Chuyển cho ai?</div>
-                <select className="xm-select" value={xferTo} onChange={e=>setXferTo(e.target.value)}>
+                <select className="xm-select" value={xferTo} onChange={e => setXferTo(e.target.value)}>
                   <option value="">-- Chọn người nhận --</option>
                   {apiTeammates
                     .filter(m => m.id !== UUID_BY_NUMERIC_ID[xferLeadId ?? -1] // ko cho ch\u1ecdn ch\u00ednh owner hi\u1ec7n t\u1ea1i
@@ -1143,10 +1145,10 @@ export default function App() {
                       : true)
                     .map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
-                <div className="xm-label">Lý do chuyển <span style={{color:'#EF4444'}}>*</span></div>
-                <textarea className="xm-textarea" value={xferReason} onChange={e=>setXferReason(e.target.value)}
-                  placeholder="VD: Lead này cần tư vấn về khóa Executive — em chưa đủ kinh nghiệm xử lý..."/>
-                <div style={{fontSize:11,color:'#F59E0B',marginTop:6,fontStyle:'italic'}}>
+                <div className="xm-label">Lý do chuyển <span style={{ color: '#EF4444' }}>*</span></div>
+                <textarea className="xm-textarea" value={xferReason} onChange={e => setXferReason(e.target.value)}
+                  placeholder="VD: Lead này cần tư vấn về khóa Executive — em chưa đủ kinh nghiệm xử lý..." />
+                <div style={{ fontSize: 11, color: '#F59E0B', marginTop: 6, fontStyle: 'italic' }}>
                   ⚠️ Ghi chú giúp người nhận hiểu ngữ cảnh — luôn nên điền rõ lý do.
                 </div>
               </div>
@@ -1157,36 +1159,36 @@ export default function App() {
                   💡 <strong>Co-deal</strong> = bạn và 1 người khác cùng chốt deal này. Hoa hồng chia theo tỷ lệ bạn đặt.
                 </div>
                 <div className="xm-label">Thêm người đồng hành</div>
-                <select className="xm-select" value={codealPerson} onChange={e=>setCodealPerson(e.target.value)}>
+                <select className="xm-select" value={codealPerson} onChange={e => setCodealPerson(e.target.value)}>
                   <option value="">-- Chọn --</option>
                   {apiTeammates.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
                 <div className="xm-label">Tỷ lệ chia hoa hồng</div>
                 <div className="split-row">
-                  <div style={{textAlign:'center',flex:1}}>
-                    <div style={{fontSize:10,color:'var(--t3)',fontFamily:'var(--mono)',marginBottom:4}}>Bạn (Linh)</div>
-                    <input type="number" value={splitMe} min={10} max={90} onChange={e=>{const v=Math.min(90,Math.max(10,parseInt(e.target.value)||70));setSplitMe(v);}}/>
+                  <div style={{ textAlign: 'center', flex: 1 }}>
+                    <div style={{ fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--mono)', marginBottom: 4 }}>Bạn (Linh)</div>
+                    <input type="number" value={splitMe} min={10} max={90} onChange={e => { const v = Math.min(90, Math.max(10, parseInt(e.target.value) || 70)); setSplitMe(v); }} />
                   </div>
                   <span>+</span>
-                  <div style={{textAlign:'center',flex:1}}>
-                    <div style={{fontSize:10,color:'var(--t3)',fontFamily:'var(--mono)',marginBottom:4}}>
-                      {codealPerson ? apiTeammates.find(m=>m.id===codealPerson)?.name?.split(' ').slice(-1)[0]||'Đồng sự' : 'Đồng sự'}
+                  <div style={{ textAlign: 'center', flex: 1 }}>
+                    <div style={{ fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--mono)', marginBottom: 4 }}>
+                      {codealPerson ? apiTeammates.find(m => m.id === codealPerson)?.name?.split(' ').slice(-1)[0] || 'Đồng sự' : 'Đồng sự'}
                     </div>
-                    <input type="number" value={100-splitMe} readOnly style={{background:'var(--stone)'}}/>
+                    <input type="number" value={100 - splitMe} readOnly style={{ background: 'var(--stone)' }} />
                   </div>
                   <span>= 100%</span>
                 </div>
-                <div className="xm-label">Ghi chú <span style={{color:'#EF4444'}}>*</span></div>
-                <textarea className="xm-textarea" value={codealNote} onChange={e=>setCodealNote(e.target.value)}
-                  placeholder="VD: Em nhờ chị Hương hỗ trợ vì chị có kinh nghiệm với CEO nhiều hơn..."/>
-                <div style={{fontSize:11,color:'#F59E0B',marginTop:6,fontStyle:'italic'}}>
+                <div className="xm-label">Ghi chú <span style={{ color: '#EF4444' }}>*</span></div>
+                <textarea className="xm-textarea" value={codealNote} onChange={e => setCodealNote(e.target.value)}
+                  placeholder="VD: Em nhờ chị Hương hỗ trợ vì chị có kinh nghiệm với CEO nhiều hơn..." />
+                <div style={{ fontSize: 11, color: '#F59E0B', marginTop: 6, fontStyle: 'italic' }}>
                   ⚠️ Ghi chú giúp đối tác hiểu vai trò + lý do chia hoa hồng — luôn nên điền rõ.
                 </div>
               </div>
             )}
-            <div style={{display:'flex',gap:7}}>
-              <button className="btn btn-ghost" style={{flex:1,justifyContent:'center'}} onClick={()=>setShowXfer(false)}>Hủy</button>
-              <button className="btn btn-primary" style={{flex:2,justifyContent:'center'}} onClick={confirmXfer}>✅ Xác nhận</button>
+            <div style={{ display: 'flex', gap: 7 }}>
+              <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setShowXfer(false)}>Hủy</button>
+              <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center' }} onClick={confirmXfer}>✅ Xác nhận</button>
             </div>
           </div>
         </div>
@@ -1196,83 +1198,83 @@ export default function App() {
       {showKPI && (() => {
         const monthIso = kpiTeamQuery.data?.month ?? '2026-04';
         const [yyyy, mm] = monthIso.split('-');
-        const monthLabel = `Tháng ${parseInt(mm,10)}/${yyyy}`;
+        const monthLabel = `Tháng ${parseInt(mm, 10)}/${yyyy}`;
         return (
-        <div className="kpi-ov" onClick={e=>{if(e.target===e.currentTarget)setShowKPI(false)}}>
-          <div className="kpi-panel">
-            <div className="kpi-hdr">
-              <div>
-                <div className="kpi-hdr-title">📊 KPI Đội · {monthLabel}</div>
-                <div className="kpi-hdr-sub">Nedu Sales Team · Adult Learning Program</div>
-              </div>
-              <button className="kpi-close" onClick={()=>setShowKPI(false)}>✕</button>
-            </div>
-            <div className="kpi-body">
-              {kpiTeamQuery.isLoading && (
-                <div style={{padding:'40px 0',textAlign:'center',color:'var(--t3)',fontSize:13}}>Đang tải KPI…</div>
-              )}
-              {kpiTeamQuery.isError && !kpiTeamQuery.isLoading && (
-                <div style={{padding:'14px 16px',marginBottom:16,background:'var(--amber-s)',border:'1.5px solid var(--amber-b)',borderRadius:'var(--rad)',color:'var(--amber)',fontSize:13}}>
-                  Không tải được KPI. <button onClick={()=>kpiTeamQuery.refetch()} style={{textDecoration:'underline',color:'var(--amber)',background:'none',border:0,cursor:'pointer'}}>Thử lại</button>
+          <div className="kpi-ov" onClick={e => { if (e.target === e.currentTarget) setShowKPI(false) }}>
+            <div className="kpi-panel">
+              <div className="kpi-hdr">
+                <div>
+                  <div className="kpi-hdr-title">📊 KPI Đội · {monthLabel}</div>
+                  <div className="kpi-hdr-sub">Nedu Sales Team · Adult Learning Program</div>
                 </div>
-              )}
-              {!kpiTeamQuery.isLoading && !kpiTeamQuery.isError && (<>
-              <div className="kpi-month-bar">
-                <div className="kmb-row">
-                  <span className="kmb-label">🎯 Mục tiêu {monthLabel.toLowerCase()} — Toàn team</span>
-                  <span className="kmb-pct">{kpiPct}%</span>
-                </div>
-                <div className="kmb-track"><div className="kmb-fill" style={{width:`${kpiPct}%`}}/></div>
-                <div className="kmb-details">
-                  <span>{totalEnrolled} đã chốt / {totalTarget} mục tiêu</span>
-                  <span>Còn {totalTarget-totalEnrolled} chỗ cần chốt</span>
-                </div>
+                <button className="kpi-close" onClick={() => setShowKPI(false)}>✕</button>
               </div>
-              <div className="kpi-stats-row">
-                <div className="kpi-stat"><div className="ks-n" style={{color:'var(--nedu)'}}>{totalEnrolled}</div><div className="ks-l">Đã chốt tháng này</div></div>
-                <div className="kpi-stat"><div className="ks-n" style={{color:'var(--amber)'}}>{(totalRevenue/1000000).toFixed(0)}M</div><div className="ks-l">Doanh thu (₫)</div></div>
-                <div className="kpi-stat"><div className="ks-n" style={{color:'var(--blue)'}}>{totalActiveLeads}</div><div className="ks-l">Lead đang theo</div></div>
-                <div className="kpi-stat"><div className="ks-n" style={{color:'var(--purple)'}}>{Math.round(conversionRate)}%</div><div className="ks-l">Tỷ lệ chuyển đổi</div></div>
-              </div>
-              <div style={{fontSize:11,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--t3)',fontFamily:'var(--mono)',marginBottom:10}}>🏆 Bảng xếp hạng</div>
-              <div className="kpi-board">
-                {sortedTeam.map((m,i) => {
-                  const pct2 = Math.round((m.enrolled/m.target)*100);
-                  const medals = ['🥇','🥈','🥉'];
-                  const isHelp = pct2 < 40;
-                  return (
-                    <div key={m.id} className={`kb-row${m.isMe?' me':isHelp?' help':''}`}>
-                      <div className="kb-rank">{medals[i]||i+1}</div>
-                      <div className="kb-avatar" style={{background:m.color}}>{m.name.split(' ').pop()![0]}</div>
-                      <div className="kb-info">
-                        <div className="kb-name">{m.name} {m.isMe&&<span className="kbadge" style={{background:'var(--green-s)',color:'var(--nedu)'}}>Bạn</span>}{isHelp&&!m.isMe&&<span className="kbadge" style={{background:'var(--amber-s)',color:'var(--amber)'}}>Cần hỗ trợ</span>}</div>
-                        <div className="kb-role">{m.role}{m.isMe?' (bạn)':''}</div>
-                        <div className="kb-bar"><div className="kb-bar-fill" style={{width:`${Math.min(pct2,100)}%`,background:isHelp?'var(--amber)':m.isMe?'var(--nedu)':'#3B82F6'}}/></div>
-                        <div className="kb-bar-lbl"><span>{m.enrolled}/{m.target} đã chốt</span><span>{pct2}%</span></div>
-                      </div>
-                      <div className="kb-right">
-                        <div className="kb-enrolled">{m.enrolled}</div>
-                        <div className="kb-target-lbl">/{m.target} mục tiêu</div>
-                        <div className="kb-rev">{(m.revenue/1000000).toFixed(0)}M ₫</div>
-                      </div>
+              <div className="kpi-body">
+                {kpiTeamQuery.isLoading && (
+                  <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--t3)', fontSize: 13 }}>Đang tải KPI…</div>
+                )}
+                {kpiTeamQuery.isError && !kpiTeamQuery.isLoading && (
+                  <div style={{ padding: '14px 16px', marginBottom: 16, background: 'var(--amber-s)', border: '1.5px solid var(--amber-b)', borderRadius: 'var(--rad)', color: 'var(--amber)', fontSize: 13 }}>
+                    Không tải được KPI. <button onClick={() => kpiTeamQuery.refetch()} style={{ textDecoration: 'underline', color: 'var(--amber)', background: 'none', border: 0, cursor: 'pointer' }}>Thử lại</button>
+                  </div>
+                )}
+                {!kpiTeamQuery.isLoading && !kpiTeamQuery.isError && (<>
+                  <div className="kpi-month-bar">
+                    <div className="kmb-row">
+                      <span className="kmb-label">🎯 Mục tiêu {monthLabel.toLowerCase()} — Toàn team</span>
+                      <span className="kmb-pct">{kpiPct}%</span>
                     </div>
-                  );
-                })}
-              </div>
-              {sortedTeam.filter(m=>Math.round((m.enrolled/m.target)*100)<40).length>0 && (
-                <div style={{marginTop:16,background:'var(--amber-s)',border:'1.5px solid var(--amber-b)',borderRadius:'var(--rad)',padding:'14px 16px'}}>
-                  <div style={{fontSize:11,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--amber)',fontFamily:'var(--mono)',marginBottom:8}}>⚠ Cần hỗ trợ</div>
-                  {sortedTeam.filter(m=>Math.round((m.enrolled/m.target)*100)<40).map(m=>(
-                    <div key={m.id} style={{fontSize:13,color:'var(--t2)',marginBottom:4}}>
-                      <strong style={{color:'var(--t1)'}}>{m.name}</strong> — {m.enrolled}/{m.target} · còn {m.target-m.enrolled} đơn để đạt mục tiêu
+                    <div className="kmb-track"><div className="kmb-fill" style={{ width: `${kpiPct}%` }} /></div>
+                    <div className="kmb-details">
+                      <span>{totalEnrolled} đã chốt / {totalTarget} mục tiêu</span>
+                      <span>Còn {totalTarget - totalEnrolled} chỗ cần chốt</span>
                     </div>
-                  ))}
-                </div>
-              )}
-              </>)}
+                  </div>
+                  <div className="kpi-stats-row">
+                    <div className="kpi-stat"><div className="ks-n" style={{ color: 'var(--nedu)' }}>{totalEnrolled}</div><div className="ks-l">Đã chốt tháng này</div></div>
+                    <div className="kpi-stat"><div className="ks-n" style={{ color: 'var(--amber)' }}>{(totalRevenue / 1000000).toFixed(0)}M</div><div className="ks-l">Doanh thu (₫)</div></div>
+                    <div className="kpi-stat"><div className="ks-n" style={{ color: 'var(--blue)' }}>{totalActiveLeads}</div><div className="ks-l">Lead đang theo</div></div>
+                    <div className="kpi-stat"><div className="ks-n" style={{ color: 'var(--purple)' }}>{Math.round(conversionRate)}%</div><div className="ks-l">Tỷ lệ chuyển đổi</div></div>
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--t3)', fontFamily: 'var(--mono)', marginBottom: 10 }}>🏆 Bảng xếp hạng</div>
+                  <div className="kpi-board">
+                    {sortedTeam.map((m, i) => {
+                      const pct2 = Math.round((m.enrolled / m.target) * 100);
+                      const medals = ['🥇', '🥈', '🥉'];
+                      const isHelp = pct2 < 40;
+                      return (
+                        <div key={m.id} className={`kb-row${m.isMe ? ' me' : isHelp ? ' help' : ''}`}>
+                          <div className="kb-rank">{medals[i] || i + 1}</div>
+                          <div className="kb-avatar" style={{ background: m.color }}>{m.name.split(' ').pop()![0]}</div>
+                          <div className="kb-info">
+                            <div className="kb-name">{m.name} {m.isMe && <span className="kbadge" style={{ background: 'var(--green-s)', color: 'var(--nedu)' }}>Bạn</span>}{isHelp && !m.isMe && <span className="kbadge" style={{ background: 'var(--amber-s)', color: 'var(--amber)' }}>Cần hỗ trợ</span>}</div>
+                            <div className="kb-role">{m.role}{m.isMe ? ' (bạn)' : ''}</div>
+                            <div className="kb-bar"><div className="kb-bar-fill" style={{ width: `${Math.min(pct2, 100)}%`, background: isHelp ? 'var(--amber)' : m.isMe ? 'var(--nedu)' : '#3B82F6' }} /></div>
+                            <div className="kb-bar-lbl"><span>{m.enrolled}/{m.target} đã chốt</span><span>{pct2}%</span></div>
+                          </div>
+                          <div className="kb-right">
+                            <div className="kb-enrolled">{m.enrolled}</div>
+                            <div className="kb-target-lbl">/{m.target} mục tiêu</div>
+                            <div className="kb-rev">{(m.revenue / 1000000).toFixed(0)}M ₫</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {sortedTeam.filter(m => Math.round((m.enrolled / m.target) * 100) < 40).length > 0 && (
+                    <div style={{ marginTop: 16, background: 'var(--amber-s)', border: '1.5px solid var(--amber-b)', borderRadius: 'var(--rad)', padding: '14px 16px' }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--amber)', fontFamily: 'var(--mono)', marginBottom: 8 }}>⚠ Cần hỗ trợ</div>
+                      {sortedTeam.filter(m => Math.round((m.enrolled / m.target) * 100) < 40).map(m => (
+                        <div key={m.id} style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 4 }}>
+                          <strong style={{ color: 'var(--t1)' }}>{m.name}</strong> — {m.enrolled}/{m.target} · còn {m.target - m.enrolled} đơn để đạt mục tiêu
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>)}
+              </div>
             </div>
           </div>
-        </div>
         );
       })()}
 
@@ -1286,7 +1288,7 @@ export default function App() {
             <div className="wc-amount">{winData.amount.toLocaleString('vi-VN')} ₫</div>
             <div className="wc-course">{winData.course}</div>
             <div className="wc-team">📢 Cả team Nedu đều nhận được thông báo này</div>
-            <button className="wc-close" onClick={()=>{setShowWin(false);showToast('🎊','Cả team đã nhận được thông báo!','Telegram · ops.nedu.vn');}}>🔥 Tuyệt vời! Tiếp tục nào</button>
+            <button className="wc-close" onClick={() => { setShowWin(false); showToast('🎊', 'Cả team đã nhận được thông báo!', 'Telegram · ops.nedu.vn'); }}>🔥 Tuyệt vời! Tiếp tục nào</button>
           </div>
         </div>
       )}
@@ -1294,11 +1296,11 @@ export default function App() {
       {/* CONFETTI */}
       {confetti.map(c => (
         <div key={c.id} className="conf" style={{
-          left:`${c.left}%`, background:c.color,
-          width:c.size, height:c.size,
-          borderRadius:c.round?'50%':'2px',
-          animationDuration:`${c.dur}s`, animationDelay:`${c.delay}s`
-        }}/>
+          left: `${c.left}%`, background: c.color,
+          width: c.size, height: c.size,
+          borderRadius: c.round ? '50%' : '2px',
+          animationDuration: `${c.dur}s`, animationDelay: `${c.delay}s`
+        }} />
       ))}
 
       {/* TOAST */}

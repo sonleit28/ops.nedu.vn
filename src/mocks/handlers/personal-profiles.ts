@@ -7,6 +7,8 @@ import type { PersonalProfile } from '@modules/ops/types'
 
 export const personalProfileHandlers = [
 
+  // Mirror BE: profile chưa có → { data: null } (200), KHÔNG phải 404.
+  // Lead không tồn tại / không có quyền vẫn throw đúng error.
   http.get('*/api/ops/leads/:id/personal-profile', async ({ params }) => {
     const personId = await getCurrentMockUserId()
     if (!personId) return unauthorized()
@@ -16,8 +18,7 @@ export const personalProfileHandlers = [
     const isElevated = person && ['leader','admin','owner'].includes(person.primary_role)
     if (!isElevated && lead.assigned_to_user_id !== personId) return forbidden('LEAD_ACCESS_DENIED')
     const profile = getProfileByLeadId(params.id as string)
-    if (!profile) return notFound('Profile chưa được tạo — nhập ngày sinh và generate trước')
-    return HttpResponse.json({ data: profile })
+    return HttpResponse.json({ data: profile ?? null })
   }),
 
   http.post('*/api/ops/leads/:id/personal-profile', async ({ params }) => {
@@ -48,11 +49,13 @@ export const personalProfileHandlers = [
         { status: 422 },
       )
     }
+    // Mirror BE upsertPersonalProfile: ghi đè nếu đã có (force regen path).
     const existingIdx = MOCK_PERSONAL_PROFILES.findIndex(p => p.lead_id === params.id)
     if (existingIdx >= 0) MOCK_PERSONAL_PROFILES.splice(existingIdx, 1)
     const now = new Date().toISOString()
     const generated: PersonalProfile = {
       id: crypto.randomUUID(), lead_id: lead.id, generated_by_person_id: personId,
+      generator: 'stub',
       core_personality: 'Mock AI: phân tích BaZi + Numerology tự động.',
       communication_dos: ['Nói trực tiếp vào lợi ích.', 'Dùng số liệu cụ thể.'],
       communication_donts: ['Tránh mơ hồ.', 'Không push quá sớm.'],

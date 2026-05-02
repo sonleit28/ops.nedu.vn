@@ -7,6 +7,7 @@ export const MOCK_PERSONAL_PROFILES: PersonalProfile[] = [
   {
     id: 'profile-0001-aaaa-0001',
     lead_id: MOCK_LEADS[0].id, generated_by_person_id: MOCK_PERSONS[2].id,
+    generator: 'stub',
     core_personality: 'Canh Kim nhật chủ — thực tế, coi trọng kết quả, quyết đoán khi đủ thông tin.',
     communication_dos: ['Đưa số liệu, kết quả cụ thể.', 'Nói thẳng vào lợi ích.', 'Hỏi về mục tiêu nghề nghiệp.'],
     communication_donts: ['Tránh nói mơ hồ.', 'Không push khi chưa trả lời hết câu hỏi.'],
