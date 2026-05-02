@@ -85,7 +85,13 @@ export function useLeadStream(enabled: boolean) {
           })
       },
       onError: () => {
-        // TODO: fallback polling refetchInterval 15s nếu SSE disconnect > 10s.
+        // SSE disconnect: invalidate ops queries để FE refetch qua REST.
+        // Catch-up notification khi user mount lại app được xử lý bởi
+        // useCatchUpNotifications (GET /notifications/unseen). Không setup
+        // polling dài hạn vì TanStack Query staleTime + refetchOnWindowFocus
+        // đủ giữ list/dashboard fresh khi user thao tác.
+        qc.invalidateQueries({ queryKey: ['ops', 'leads'] })
+        qc.invalidateQueries({ queryKey: ['ops', 'dashboard'] })
       },
     }).catch(() => {
       /* swallow AbortError + network */

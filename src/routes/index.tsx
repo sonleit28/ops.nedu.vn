@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { ProtectedRoute } from './ProtectedRoute'
 import { LoginPage } from '@modules/auth/pages/LoginPage'
 import { AuthCallbackPage } from '@modules/auth/pages/AuthCallbackPage'
@@ -9,6 +8,17 @@ import App from '../App'
 import { useAuthStore } from '@modules/auth/stores/useAuthStore'
 import { queryClient } from '@shared/config/query-client'
 import { RouteTracker } from '@shared/analytics/RouteTracker'
+import { env } from '@shared/config/env'
+
+// Lazy-load Devtools để tree-shake khỏi prod bundle. Vite build drop
+// hẳn import này khi IS_DEV=false.
+const ReactQueryDevtools = env.IS_DEV
+  ? React.lazy(() =>
+      import('@tanstack/react-query-devtools').then((m) => ({
+        default: m.ReactQueryDevtools,
+      })),
+    )
+  : null
 
 // App.tsx owns the full v6 UI (topbar + panels + modals) — giữ nguyên từ commit ab61c17.
 const AppLayout: React.FC = () => <App />
@@ -36,7 +46,11 @@ export const AppRouter: React.FC = () => {
           </Routes>
         </AppInit>
       </BrowserRouter>
-      <ReactQueryDevtools initialIsOpen={false} />
+      {ReactQueryDevtools && (
+        <React.Suspense fallback={null}>
+          <ReactQueryDevtools initialIsOpen={false} />
+        </React.Suspense>
+      )}
     </QueryClientProvider>
   )
 }
