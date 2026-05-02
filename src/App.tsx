@@ -16,7 +16,7 @@ import type {
   ProfileCard,
 } from '@modules/ops/types';
 import {
-  S_NAMES, S_ICONS, FUNNEL_LAYERS, NEXT_LABELS, BACK_REASONS, GUIDES,
+  S_NAMES, S_ICONS, FUNNEL_LAYERS, NEXT_LABELS, BACK_REASONS,
 } from '@modules/ops/constants/funnel';
 import {
   COURSES, UI_COURSE_TO_CODE, COURSE_TO_PROGRAM, PAY_METHOD_MAP,
@@ -28,10 +28,13 @@ import { env } from '@shared/config/env';
 import { actionIconOf, actionLabelOf } from '@modules/ops/utils/pipeline-actions';
 import { UUID_BY_NUMERIC_ID, leadToTodo } from '@modules/ops/utils/lead-mapper';
 import { toDisplayMembers } from '@modules/ops/utils/team-display';
-import { getFunnelLayer, nowStr, calcAge, getProfilePct, buildHintTxt } from '@modules/ops/utils/lead-helpers';
+import { getFunnelLayer, nowStr, calcAge, getProfilePct } from '@modules/ops/utils/lead-helpers';
 import { LeadCard } from '@modules/ops/components/lead-card';
 import { LeadHero } from '@modules/ops/components/lead-hero';
 import { FunnelBar } from '@modules/ops/components/funnel-bar';
+import { TimelineList } from '@modules/ops/components/timeline-list';
+import { NoteMessenger } from '@modules/ops/components/note-messenger';
+import { CenterBody } from '@modules/ops/components/center-body';
 
 // ─── MAIN APP ─────────────────────────────────────────
 export default function App() {
@@ -1316,221 +1319,6 @@ export default function App() {
 }
 
 // ─── SUB COMPONENTS ──────────────────────────────────
-
-function CenterBody({t, guideChecks, profileCards, onToggleGuide, onSendNote, onEditNote, onDeleteNote, onToggleCourse, editingNotes, onStartEditNote, onCancelEditNote}: {
-  t: Todo; guideChecks: Record<number,boolean>;
-  profileCards: Record<number,ProfileCard>;
-  onToggleGuide: (idx:number)=>void;
-  onSendNote: (text:string)=>void;
-  onEditNote: (idx:number,val:string)=>void;
-  onDeleteNote: (idx:number)=>void;
-  onToggleCourse: (cid:string)=>void;
-  editingNotes: Record<string,string>;
-  onStartEditNote: (idx:number,val:string)=>void;
-  onCancelEditNote: (idx:number)=>void;
-}) {
-  const guide = GUIDES[t.stage];
-  const pc = getProfilePct(t);
-  const hasPC = profileCards[t.id]?.gen;
-  const aiSumMap: Record<number,string> = {
-    6:'Khách cũ 2022 — do dự vì <strong>tài chính và gia đình</strong>. Điểm test tăng 51→68. <strong>Sẵn sàng hơn nhiều</strong>. Hỏi "điều gì đã thay đổi trong 3 năm" trước khi pitch.',
-    4:'2 lần tư vấn — lần 1 nhiệt tình, lần 2 <strong>objection giá</strong>. CEO phân tích ROI. <strong>Chuyển từ emotional pitch → business value.</strong> Dùng Hồ sơ AI.',
-    5:'<strong>Đã quyết định</strong> — chỉ chờ thời điểm tài chính. Duy trì kết nối nhẹ nhàng.',
-    7:'Lead <strong>Marketing mới</strong> — chưa có lịch sử tư vấn. Thu thập thông tin cơ bản trong cuộc gọi đầu.',
-  };
-  const aiTagsMap: Record<number,string[]> = {
-    6:['Khách cũ','Điểm tăng','Sẵn sàng hơn'],
-    4:['Objection giá','Cần góc ROI','Có Hồ sơ AI'],
-    5:['Đã quyết định','Chờ chuyển khoản'],
-    7:['Marketing lead','Chưa test','Cuộc gọi đầu'],
-  };
-  const realTL = t.timeline.filter(x=>!x.isDivider && x.note);
-  const showAI = realTL.length >= 2 && aiSumMap[t.id];
-
-  return (
-    <>
-      {t.testScore>0 && (
-        <div className="test-pill">
-          <div className="tp-score">{t.testScore}</div>
-          <div><div className="tp-label">🧩 Điểm bài test</div><div className="tp-text">{t.testDesc}</div></div>
-        </div>
-      )}
-      {t.sourceType==='marketing' && (
-        <div style={{background:'var(--blue-s)',border:'1.5px solid var(--blue-b)',borderRadius:'var(--rads)',padding:'11px 13px',marginBottom:12}}>
-          <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:'var(--blue)',fontFamily:'var(--mono)',letterSpacing:'.1em',marginBottom:5}}>📢 Lead từ Đội Marketing</div>
-          <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.6}}>Lead này được Marketing team tạo từ <strong>{t.sourceCh}</strong>. Họ <strong>chưa qua bài test nedu.vn</strong> — cần thu thập thêm thông tin cơ bản trong cuộc gọi đầu tiên.</div>
-        </div>
-      )}
-      {hasPC ? (
-        <div className="profile-hint">
-          <div className="ph-label" style={{color:'var(--purple)'}}>✨ Hồ sơ AI sẵn sàng — xem trong "Gọi & Hồ sơ"</div>
-          <div className="ph-text" dangerouslySetInnerHTML={{__html:buildHintTxt(t)}}/>
-        </div>
-      ) : pc < 60 ? (
-        <div className="profile-hint">
-          <div className="ph-label">🧩 Hồ sơ {pc}%</div>
-          <div className="ph-text">Điền thêm khi gọi → nhấn <strong>✨ Tạo Hồ sơ AI</strong> để AI tổng hợp cách tư vấn.</div>
-        </div>
-      ) : null}
-      {guide && (
-        <div className="guide-card" style={{borderColor:`${guide.color}30`,borderLeft:`4px solid ${guide.color}`}}>
-          <div className="gc-eyebrow" style={{color:guide.color}}>
-            <span style={{display:'block',width:3,height:11,background:guide.color,borderRadius:2}}/>
-            {guide.eyebrow}
-          </div>
-          <div className="gc-title">{guide.title}</div>
-          <div className="gc-script" dangerouslySetInnerHTML={{__html:guide.script}}/>
-          <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'.08em',color:'var(--t3)',fontFamily:'var(--mono)',marginBottom:6}}>📋 Checklist</div>
-          <div className="guide-list">
-            {guide.steps.map((s,i) => (
-              <div key={i} className={`guide-item${guideChecks[i]?' checked':''}`} onClick={()=>onToggleGuide(i)}>
-                <div className="gi-box"/>
-                <div className="gi-text">{s}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      <div className="history-card" style={{marginBottom:12}}>
-        <div style={{fontSize:10,fontWeight:700,color:'var(--t3)',fontFamily:'var(--mono)',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:10}}>🕐 Lịch sử liên hệ</div>
-        {showAI && (
-          <div className="ai-summary">
-            <div className="ais-hdr">
-              <span style={{fontSize:15}}>🤖</span>
-              <span className="ais-label">AI tóm tắt</span>
-              <span className="ais-badge">{realTL.length} ghi chú</span>
-            </div>
-            <div className="ais-text" dangerouslySetInnerHTML={{__html:aiSumMap[t.id]}}/>
-            {aiTagsMap[t.id] && <div className="ais-tags">{aiTagsMap[t.id].map(tag=><div key={tag} className="ais-tag">{tag}</div>)}</div>}
-          </div>
-        )}
-        <TimelineList items={t.timeline}/>
-      </div>
-      <NoteMessenger
-        t={t}
-        onSendNote={onSendNote}
-        onEditNote={onEditNote}
-        onDeleteNote={onDeleteNote}
-        onToggleCourse={onToggleCourse}
-        editingNotes={editingNotes}
-        onStartEditNote={onStartEditNote}
-        onCancelEditNote={onCancelEditNote}
-        scopeId="body"
-      />
-    </>
-  );
-}
-
-function TimelineList({items}: {items: TLItem[]}) {
-  return (
-    <>
-      {items.map((tl,i) => {
-        if (tl.isDivider) return <div key={i} className="tl-divider">{tl.label}</div>;
-        return (
-          <div key={i} className="tl-item">
-            <div className="tl-icon">{tl.icon}</div>
-            <div className="tl-main">
-              <div className="tl-top">
-                <div className="tl-action">{tl.action}</div>
-                {tl.who && tl.who!=='Hệ thống' && <div className="tl-who">✍ {tl.who}</div>}
-              </div>
-              <div className="tl-date">{tl.date}</div>
-              {tl.note && <div className="tl-note">{tl.note}</div>}
-            </div>
-          </div>
-        );
-      })}
-    </>
-  );
-}
-
-function NoteMessenger({t, onSendNote, onEditNote, onDeleteNote, onToggleCourse, editingNotes, onStartEditNote, onCancelEditNote}: {
-  t: Todo;
-  onSendNote: (text:string)=>void;
-  onEditNote: (idx:number,val:string)=>void;
-  onDeleteNote: (idx:number)=>void;
-  onToggleCourse: (cid:string)=>void;
-  editingNotes: Record<string,string>;
-  onStartEditNote: (idx:number,val:string)=>void;
-  onCancelEditNote: (idx:number)=>void;
-  scopeId?: string;
-}) {
-  const [input, setInput] = useState('');
-  const taRef = useRef<HTMLTextAreaElement>(null);
-
-  function handleKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (input.trim()) { onSendNote(input); setInput(''); }
-    }
-  }
-
-  return (
-    <div className="nm-box">
-      <div className="nm-header">
-        <div className="nm-pulse"/>
-        <div className="nm-hdr-text">
-          <div className="nm-title">📝 Ghi chú cho người kế tiếp</div>
-          <div className="nm-sub">Điền mỗi cuộc gọi — người sau đọc là hiểu ngay cần làm gì</div>
-        </div>
-        <div className="nm-count">{t.notes.length} ghi chú</div>
-      </div>
-      <div className="nm-list">
-        {t.notes.length === 0
-          ? <div className="nm-empty">Chưa có ghi chú · Gõ bên dưới và Enter để thêm</div>
-          : t.notes.map((n,i) => {
-            const eKey = `${t.id}-${i}`;
-            const isEditing = eKey in editingNotes;
-            return (
-              <div key={i} className={`nm-bubble${isEditing?' editing':''}`}>
-                {isEditing ? (
-                  <>
-                    <textarea className="nm-edit-ta"
-                      value={editingNotes[eKey]}
-                      onChange={e=>onStartEditNote(i,e.target.value)}
-                      onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();onEditNote(i,editingNotes[eKey]);}}}
-                      autoFocus/>
-                    <div className="nm-edit-actions">
-                      <button className="btn btn-danger btn-sm" onClick={()=>onDeleteNote(i)}>🗑 Xóa</button>
-                      <button className="btn btn-ghost btn-sm" onClick={()=>onCancelEditNote(i)}>Hủy</button>
-                      <button className="btn btn-primary btn-sm" onClick={()=>onEditNote(i,editingNotes[eKey])}>💾 Lưu</button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="nm-btext">{n.text}</div>
-                    <div className="nm-bmeta">
-                      <span className="nm-bwho">✍ {n.who||'Linh Nguyễn'}</span>
-                      <span className="nm-btime">{n.date}</span>
-                      <button className="nm-bedit" onClick={()=>onStartEditNote(i,n.text)} title="Chỉnh sửa">✏️</button>
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          })}
-      </div>
-      <div className="course-bar">
-        <div className="cb-label">🎯 Khóa đang tư vấn — chọn để nhớ</div>
-        <div className="cb-chips">
-          {COURSES.map(c => (
-            <div key={c.id} className={`course-chip${t.courses.includes(c.id)?' selected':''}`}
-              onClick={()=>onToggleCourse(c.id)}>
-              {c.emoji} {c.name}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="nm-input-bar">
-        <textarea ref={taRef} className="nm-input" rows={1}
-          placeholder="Ghi chú cho người kế tiếp... (Enter để lưu, Shift+Enter xuống dòng)"
-          value={input} onChange={e=>{setInput(e.target.value);if(taRef.current){taRef.current.style.height='auto';taRef.current.style.height=Math.min(taRef.current.scrollHeight,96)+'px';}}}
-          onKeyDown={handleKey}/>
-        <button className="nm-send" onClick={()=>{if(input.trim()){onSendNote(input);setInput('');}}} title="Gửi">↑</button>
-      </div>
-    </div>
-  );
-}
 
 // ─── CALL SCREEN ─────────────────────────────────────
 function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, editingFields, onEditField, onSavePF, onSaveBasic, onSetGender, onSetConsent, onMarkDirty, profileDirty, generatingProfile, onGenProfile, onRegenProfile, onSendNote, onEditNote, onDeleteNote, onToggleCourse, editingNotes, onStartEditNote, onCancelEditNote}: {
