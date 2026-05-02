@@ -24,15 +24,15 @@ const PAY_METHOD_MAP: Record<string, PaymentMethod> = {
 };
 
 // ─── CONSTANTS ───────────────────────────────────────
-const S_NAMES = ['Awareness','Interest','Consideration','Intent','Enrolled','Retention'];
+const S_NAMES = ['Biết đến','Quan tâm','Cân nhắc','Muốn mua','Đã đăng ký','Giữ chân'];
 const S_ICONS = ['👁','💡','🤔','🔥','✅','🎓'];
 
 const FUNNEL_LAYERS = [
-  {id:'attract', label:'Attract Visitors',  color:'#6B7280', stages:[] as number[]},
-  {id:'convert', label:'Convert Visitors',  color:'#3B82F6', stages:[] as number[]},
-  {id:'nurture', label:'Nurture Leads',     color:'#8B5CF6', stages:[1,2,3]},
-  {id:'close',   label:'Close Customers',   color:'#F59E0B', stages:[4,5]},
-  {id:'delight', label:'Delight Customers', color:'#059669', stages:[6]},
+  {id:'attract', short:'Thu hút',    label:'Thu hút khách',     color:'#6B7280', stages:[] as number[]},
+  {id:'convert', short:'Chuyển đổi', label:'Chuyển đổi khách',  color:'#3B82F6', stages:[] as number[]},
+  {id:'nurture', short:'Nuôi dưỡng', label:'Nuôi dưỡng lead',   color:'#8B5CF6', stages:[1,2,3]},
+  {id:'close',   short:'Chốt deal',  label:'Chốt khách hàng',   color:'#F59E0B', stages:[4,5]},
+  {id:'delight', short:'Chăm sóc',   label:'Chăm sóc khách',    color:'#059669', stages:[6]},
 ];
 
 function getFunnelLayer(stage: number) {
@@ -40,11 +40,11 @@ function getFunnelLayer(stage: number) {
 }
 
 const NEXT_LABELS: Record<number, string> = {
-  1:'Đã liên hệ → Interest',
-  2:'Đang quan tâm → Consideration',
-  3:'Gần quyết định → Intent',
-  4:'✅ Mark Enrolled',
-  5:'→ Retention',
+  1:'Đã liên hệ → Quan tâm',
+  2:'Đang quan tâm → Cân nhắc',
+  3:'Gần quyết định → Muốn mua',
+  4:'✅ Đã đăng ký',
+  5:'→ Giữ chân',
 };
 const BACK_REASONS = [
   {icon:'🤔', label:'Cần tư vấn thêm — chưa đủ thông tin'},
@@ -58,21 +58,21 @@ const GUIDES: Record<number, {eyebrow:string,color:string,title:string,script:st
   1:{eyebrow:'LIÊN HỆ LẦN ĐẦU',color:'#EF4444',title:'Gọi điện — đọc hồ sơ trước',
      script:'"Dạ em là <strong>Linh</strong> từ Nedu ạ. Anh/chị có tiện nghe không ạ?"',
      steps:['Bấm "📞 Gọi & xem hồ sơ" để đọc thông tin','Giới thiệu bản thân + mục đích (30 giây)','Hỏi về vấn đề, chưa chào hàng','Ghi chú trong cuộc gọi','Đặt lịch call tiếp']},
-  2:{eyebrow:'NURTURING',color:'#3B82F6',title:'Follow up cá nhân hóa',
+  2:{eyebrow:'NUÔI DƯỠNG',color:'#3B82F6',title:'Follow up cá nhân hóa',
      script:'"Em chia sẻ thêm nội dung liên quan điều anh/chị đề cập hôm trước..."',
      steps:['Ôn lại note lần trước','Gửi nội dung phù hợp','Hỏi sâu về nhu cầu','Share câu chuyện học viên tương tự','Đề xuất tư vấn 30 phút']},
   3:{eyebrow:'TƯ VẤN SÂU',color:'#8B5CF6',title:'Giải quyết băn khoăn cuối',
      script:'"Điều gì đang khiến anh/chị chưa quyết định? Em muốn giúp có đủ thông tin."',
-     steps:['Xác định băn khoăn chính','Share testimonial phù hợp','Giải thích ROI','Mời live preview','Set deadline quyết định']},
+     steps:['Xác định băn khoăn chính','Chia sẻ phản hồi học viên phù hợp','Giải thích lợi ích đầu tư','Mời tham dự buổi học thử','Đặt mốc thời gian quyết định']},
   4:{eyebrow:'SẮP CHỐT',color:'#D97706',title:'Xác nhận và chốt deal',
      script:'"Anh/chị đã sẵn sàng chưa? Em giữ chỗ nha."',
-     steps:['Tóm tắt những gì đã đồng ý','Xác nhận thông tin thanh toán','Gửi số tài khoản','Hẹn thời điểm chuyển khoản','Mark Enrolled ngay khi nhận tiền']},
-  5:{eyebrow:'RETENTION',color:'#059669',title:'Theo dõi trải nghiệm học',
+     steps:['Tóm tắt những gì đã đồng ý','Xác nhận thông tin thanh toán','Gửi số tài khoản','Hẹn thời điểm chuyển khoản','Đánh dấu đã chốt ngay khi nhận tiền']},
+  5:{eyebrow:'SAU BÁN HÀNG',color:'#059669',title:'Theo dõi trải nghiệm học',
      script:'"Chào anh/chị, em muốn hỏi thăm trải nghiệm tuần đầu. Có gì cần hỗ trợ không ạ?"',
-     steps:['Check-in sau 3 ngày đầu','Hỏi về trải nghiệm module đầu tiên','Xem họ có kết nối với cộng đồng không','Mời tham gia hoạt động group','Xin testimonial nếu họ hài lòng']},
-  6:{eyebrow:'ALUMNI',color:'#06B6D4',title:'Kết nối vào alumni network',
+     steps:['Hỏi thăm sau 3 ngày đầu','Hỏi về trải nghiệm học phần đầu tiên','Xem họ có kết nối với cộng đồng không','Mời tham gia hoạt động nhóm','Xin phản hồi nếu họ hài lòng']},
+  6:{eyebrow:'CỰU HỌC VIÊN',color:'#06B6D4',title:'Kết nối vào mạng cựu học viên',
      script:'"Chúc mừng anh/chị hoàn thành khóa học! Em muốn mời tham gia cộng đồng alumni."',
-     steps:['Gửi link alumni.nedu.vn','Giới thiệu các hoạt động cộng đồng','Hỏi về referral — ai trong gia đình/bạn bè cần','Ghi nhận testimonial','Theo dõi dài hạn']},
+     steps:['Gửi link alumni.nedu.vn','Giới thiệu các hoạt động cộng đồng','Hỏi về giới thiệu — ai trong gia đình/bạn bè cần','Ghi nhận phản hồi','Theo dõi dài hạn']},
 };
 const PF_FIELDS = [
   {key:'dob',    label:'Ngày sinh',    icon:'🎂', ph:'VD: 15/08/1990'},
@@ -82,11 +82,11 @@ const PF_FIELDS = [
   {key:'pain',   label:'Vấn đề chính',icon:'💬', ph:'VD: Stress công việc...'},
 ];
 const COURSES = [
-  {id:'lcm',  name:'Là Chính Mình',     emoji:'🌱', desc:'Tâm lý · tự nhận thức'},
-  {id:'adult', name:'Adult Learning',   emoji:'📚', desc:'Phát triển bản thân'},
-  {id:'exec',  name:'Executive Track',  emoji:'🎯', desc:'Lãnh đạo · doanh nhân'},
-  {id:'short', name:'Short Course',     emoji:'⚡', desc:'Ngắn hạn · online'},
-  {id:'corp',  name:'Corporate',        emoji:'🏢', desc:'Doanh nghiệp'},
+  {id:'lcm',  name:'Là Chính Mình',         emoji:'🌱', desc:'Tâm lý · tự nhận thức'},
+  {id:'adult', name:'Học Tập Người Lớn',    emoji:'📚', desc:'Phát triển bản thân'},
+  {id:'exec',  name:'Lộ Trình Điều Hành',   emoji:'🎯', desc:'Lãnh đạo · doanh nhân'},
+  {id:'short', name:'Khóa Ngắn Hạn',        emoji:'⚡', desc:'Ngắn hạn · online'},
+  {id:'corp',  name:'Doanh Nghiệp',         emoji:'🏢', desc:'Doanh nghiệp'},
 ];
 
 type Profile = {dob:string; birthTime:string; job:string; goal:string; pain:string; gender?:'male'|'female'};
@@ -156,9 +156,9 @@ function actionLabelOf(a: PipelineAction): string {
     case 'lead_assigned': return 'Được giao';
     case 'lead_transferred': return 'Chuyển case';
     case 'co_deal_created': return 'Tạo co-deal';
-    case 'enrolled': return 'Enrolled';
+    case 'enrolled': return 'Đã chốt';
     case 'profile_updated': return 'Cập nhật hồ sơ';
-    case 'ai_profile_generated': return 'Tạo Personal Profile';
+    case 'ai_profile_generated': return 'Tạo Hồ sơ AI';
     default: return a.action_type;
   }
 }
@@ -206,8 +206,8 @@ function leadToTodo(lead: BackendLead): Todo {
   const badge = lead.sla_breached
     ? `⚠ Quá hạn${lead.sla_breach_hours ? ' ' + lead.sla_breach_hours + 'h' : ''}`
     : lead.is_returning ? '🔄 Khách cũ'
-    : isMarketing ? '📢 Marketing'
-    : `Stage ${stage}`;
+    : isMarketing ? '📢 Quảng cáo'
+    : `Giai đoạn ${stage}`;
   const badgeColor = lead.sla_breached ? 'red'
     : lead.is_returning ? 'amber'
     : isMarketing ? 'blue'
@@ -229,7 +229,7 @@ function leadToTodo(lead: BackendLead): Todo {
     sourceType: isMarketing ? 'marketing' : 'inbound',
     // Đọc source_channel thật từ BE (vd: "nedu.vn/consultation-form", "nedu.vn/test", "fb-ads-T4").
     // Fallback theo source khi BE chưa cấp channel cụ thể.
-    sourceCh: lead.source_channel ?? (isMarketing ? 'Marketing campaign' : 'inbound'),
+    sourceCh: lead.source_channel ?? (isMarketing ? 'Chiến dịch quảng cáo' : 'inbound'),
     color: STAGE_COLOR[stage] ?? '#8B5CF6',
     days,
     testScore: lead.test_score ?? 0,
@@ -263,11 +263,11 @@ const INIT_TODOS: Todo[] = [
    note:'',profile:{dob:'19/07/1987',birthTime:'',job:'Giáo viên THPT',goal:'',pain:''},
    courses:['lcm'],
    timeline:[
-     {icon:'☑️',action:'Tick "cho tư vấn" — lần 2',date:'06/04/2026 08:15',who:'System',note:''},
-     {icon:'🧩',action:'Bài test lần 2 — điểm 68',date:'06/04/2026 08:10',who:'System',note:'Tăng từ 51 lên 68 sau 3 năm'},
+     {icon:'☑️',action:'Tick "cho tư vấn" — lần 2',date:'06/04/2026 08:15',who:'Hệ thống',note:''},
+     {icon:'🧩',action:'Bài test lần 2 — điểm 68',date:'06/04/2026 08:10',who:'Hệ thống',note:'Tăng từ 51 lên 68 sau 3 năm'},
      {isDivider:true,label:'── 3 năm trước · 2022 ──'},
      {icon:'📞',action:'Tư vấn lần 1 — 2022',date:'15/03/2022 10:00',who:'Hương Nguyễn',note:'Nói "chưa sẵn sàng tài chính, để sau". Giọng có áp lực gia đình. Hỏi nhiều về lịch cuối tuần.'},
-     {icon:'🧩',action:'Bài test lần 1 — điểm 51',date:'12/03/2022',who:'System',note:''},
+     {icon:'🧩',action:'Bài test lần 1 — điểm 51',date:'12/03/2022',who:'Hệ thống',note:''},
    ],
    notes:[{text:'Khách cũ — lần đầu do áp lực gia đình. Lần này TỰ quay lại. Hỏi ngay: "Điều gì thay đổi trong 3 năm?" trước khi pitch.',date:'06/04/2026',who:'Hương Nguyễn (2022)'}],
    done:false},
@@ -281,12 +281,12 @@ const INIT_TODOS: Todo[] = [
    note:'',profile:{dob:'',birthTime:'',job:'',goal:'',pain:''},
    courses:[],
    timeline:[
-     {icon:'☑️',action:'Tick "cho tư vấn"',date:'05/04/2026 07:30',who:'System',note:''},
-     {icon:'🧩',action:'Hoàn thành bài test',date:'05/04/2026 07:25',who:'System',note:''},
+     {icon:'☑️',action:'Tick "cho tư vấn"',date:'05/04/2026 07:30',who:'Hệ thống',note:''},
+     {icon:'🧩',action:'Hoàn thành bài test',date:'05/04/2026 07:25',who:'Hệ thống',note:''},
    ],notes:[],done:false},
 
   {id:7,priority:'urgent',action:'GỌI NGAY',name:'Vũ Thị Phương',
-   badge:'📢 Marketing campaign',badgeColor:'blue',
+   badge:'📢 Chiến dịch quảng cáo',badgeColor:'blue',
    desc:'Từ Facebook Ads Tháng 4. Marketing team đã thu thập email.',
    stage:1,phone:'0976 543 210',email:'phuong.vt@gmail.com',
    sourceType:'marketing',sourceCh:'Facebook Ads · Campaign T4/2026',color:'#3B82F6',days:0,
@@ -295,17 +295,17 @@ const INIT_TODOS: Todo[] = [
    profile:{dob:'',birthTime:'',job:'',goal:'',pain:''},
    courses:[],
    timeline:[
-     {icon:'📢',action:'Lead từ Facebook Ads Campaign',date:'06/04/2026 06:00',who:'Marketing Team',note:'UTM: fb_ads_lcm_t4_2026. Điền form landing page quảng cáo. Chưa qua bài test nedu.vn.'},
+     {icon:'📢',action:'Lead từ Facebook Ads Campaign',date:'06/04/2026 06:00',who:'Đội Marketing',note:'UTM: fb_ads_lcm_t4_2026. Điền form landing page quảng cáo. Chưa qua bài test nedu.vn.'},
    ],notes:[],done:false},
 
   {id:4,priority:'today',action:'TƯ VẤN',name:'Hoàng Văn Nam',
    badge:'💬 Objection giá',badgeColor:'amber',
-   desc:'Dùng Personal Profile để xử lý đúng góc độ CEO.',
+   desc:'Dùng Hồ sơ AI để xử lý đúng góc độ CEO.',
    stage:3,phone:'0945 321 098',email:'nam.hv@company.com',
    sourceType:'inbound',sourceCh:'nedu.vn/test',color:'#06B6D4',days:8,
    testScore:74,testDesc:'Thành đạt tài chính nhưng trống rỗng bên trong.',
-   note:'Đọc Personal Profile trước khi gọi — có profile đầy đủ.',
-   profile:{dob:'10/03/1985',birthTime:'14:30',job:'CEO Startup',goal:'Tìm lại ý nghĩa',pain:'Cô đơn trong vai trò CEO, đội nhóm sợ không nói thật'},
+   note:'Đọc Hồ sơ AI trước khi gọi — có profile đầy đủ.',
+   profile:{dob:'10/03/1985',birthTime:'14:30',job:'CEO Khởi nghiệp',goal:'Tìm lại ý nghĩa',pain:'Cô đơn trong vai trò CEO, đội nhóm sợ không nói thật'},
    courses:['lcm','exec'],
    timeline:[
      {icon:'📞',action:'Tư vấn lần 2 — objection giá',date:'04/04/2026 14:20',who:'Linh Nguyễn',note:'Nói 70M nhiều. Giải thích community + 1-on-1 NhiLe. "Sẽ suy nghĩ". → Dùng góc ROI lần sau.'},
@@ -319,7 +319,7 @@ const INIT_TODOS: Todo[] = [
    sourceType:'inbound',sourceCh:'nedu.vn/test',color:'#8B5CF6',days:11,
    testScore:77,testDesc:'Burnout nặng sau 5 năm.',
    note:'Chị đã quyết định. Chờ lương.',
-   profile:{dob:'07/11/1992',birthTime:'08:15',job:'Marketing Manager',goal:'Thoát burnout',pain:'Mất niềm vui sống'},
+   profile:{dob:'07/11/1992',birthTime:'08:15',job:'Quản lý Marketing',goal:'Thoát kiệt sức',pain:'Mất niềm vui sống'},
    courses:['lcm'],
    timeline:[
      {icon:'💬',action:'Confirm ngày thanh toán',date:'06/04/2026 08:00',who:'Linh Nguyễn',note:'Lương về 15/4, chuyển liền.'},
@@ -551,7 +551,7 @@ export default function App() {
         onError: (err) => {
           // Rollback
           updateTodo(t.id, old => ({ ...old, stage: t.stage }));
-          alert('Tiến stage thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+          alert('Tiến stage thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
         },
       },
     );
@@ -585,7 +585,7 @@ export default function App() {
       {
         onError: (err) => {
           updateTodo(t.id, old => ({ ...old, stage: t.stage }));
-          alert('Lùi stage thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+          alert('Lùi stage thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
         },
       },
     );
@@ -610,7 +610,7 @@ export default function App() {
     const t = getTodo(id);
     if (!t) return;
     if (!t.email || !t.email.trim()) {
-      showToast('⚠️', 'Lead chưa có email', 'Cập nhật email trước khi Enrolled');
+      showToast('⚠️', 'Lead chưa có email', 'Cập nhật email trước khi đánh dấu đã chốt');
       return;
     }
     setEnrollId(id); setPayMethod('transfer'); setPayCourse('lcm');
@@ -621,7 +621,7 @@ export default function App() {
     const t = getTodo(enrollId!); if (!t) return;
     if (!t.email || !t.email.trim()) {
       setShowEnroll(false);
-      showToast('⚠️', 'Lead chưa có email', 'Cập nhật email trước khi Enrolled');
+      showToast('⚠️', 'Lead chưa có email', 'Cập nhật email trước khi đánh dấu đã chốt');
       return;
     }
     const courseMap: Record<string,string> = {lcm:'🌱 Là Chính Mình',adult:'📚 Adult Learning Core',exec:'🎯 Executive Track',short:'⚡ Short Course',corp:'🏢 Corporate'};
@@ -634,7 +634,7 @@ export default function App() {
 
     const applySuccess = () => {
       updateTodo(t.id, old => ({
-        ...old, stage:5, priority:'week', action:'CHECK-IN', badge:'✅ Enrolled', badgeColor:'green',
+        ...old, stage:5, priority:'week', action:'THEO DÕI', badge:'✅ Đã chốt', badgeColor:'green',
         desc:'Theo dõi trải nghiệm tuần đầu.',
         payment:{amount, course:courseName, method:pmLabels[payMethod]||'Chuyển khoản', txn:payTxn, date:nowStr()},
         timeline:[{icon:'✅',action:`ENROLLED — ${courseName}`,date:nowStr(),who:'Linh Nguyễn',note:`${pmLabels[payMethod]||'Chuyển khoản'} · ${amount.toLocaleString('vi-VN')}₫${payTxn?' · Mã: '+payTxn:''}`}, ...old.timeline]
@@ -673,11 +673,11 @@ export default function App() {
         onError: (err) => {
           const e = err as { message?: string; code?: string };
           if (e.code === 'LEAD_EMAIL_REQUIRED_FOR_ENROLLMENT') {
-            showError('Lead chưa có email — cập nhật email trước khi Enrolled.');
+            showError('Lead chưa có email — cập nhật email trước khi đánh dấu đã chốt.');
           } else if (e.code === 'LEAD_ALREADY_ENROLLED') {
-            showError('Lead đã enrolled trước đó.');
+            showError('Lead đã chốt trước đó.');
           } else {
-            showError(e.message ?? 'Unknown error');
+            showError(e.message ?? 'Lỗi không xác định');
           }
         },
       },
@@ -696,7 +696,7 @@ export default function App() {
     if (xferTab === 'codeal') {
       if (!codealPerson) { showToast('⚠','Chọn người đồng hành',''); return; }
       const teamPerson = apiTeammates.find(m => m.id === codealPerson);
-      const pName = teamPerson?.name || 'Co-dealer';
+      const pName = teamPerson?.name || 'Đồng sự';
       // Optimistic
       updateTodo(t.id, old => ({
         ...old,
@@ -716,7 +716,7 @@ export default function App() {
             onError: (err) => {
               // Rollback codeal
               updateTodo(t.id, old => ({ ...old, codeal: (old.codeal||[]).slice(0, -1) }));
-              alert('Co-deal thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+              alert('Co-deal thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
             },
           },
         );
@@ -725,7 +725,7 @@ export default function App() {
       if (!xferTo) { showToast('⚠','Chọn người nhận',''); return; }
       if (!xferReason.trim()) { showToast('⚠','Nhập lý do chuyển',''); return; }
       const toMember = apiTeammates.find(m => m.id === xferTo);
-      const toName = toMember?.name || 'Teammate';
+      const toName = toMember?.name || 'Đồng đội';
       const prevAssigned = t.assignedTo;
       // Optimistic
       updateTodo(t.id, old => ({
@@ -738,7 +738,7 @@ export default function App() {
           {
             onError: (err) => {
               updateTodo(t.id, old => ({ ...old, assignedTo: prevAssigned, priority: 'urgent', done: false }));
-              alert('Chuyển case thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+              alert('Chuyển case thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
             },
           },
         );
@@ -783,7 +783,7 @@ export default function App() {
       { leadId: uuid, patch: { [field]: value } as Partial<BackendLead> },
       {
         onError: (err) => {
-          alert(`Cập nhật ${label} thất bại: ` + (err instanceof Error ? err.message : 'Unknown error'));
+          alert(`Cập nhật ${label} thất bại: ` + (err instanceof Error ? err.message : 'Lỗi không xác định'));
         },
       },
     );
@@ -806,7 +806,7 @@ export default function App() {
       { leadId: uuid, patch: { metadata: { gender } } as Partial<BackendLead> },
       {
         onError: (err) => {
-          alert('Lưu giới tính thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+          alert('Lưu giới tính thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
         },
       },
     );
@@ -820,7 +820,7 @@ export default function App() {
       { leadId: uuid, patch: { ai_profile_consent: consent } as Partial<BackendLead> },
       {
         onError: (err) => {
-          alert('Lưu consent thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+          alert('Lưu đồng ý thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
         },
       },
     );
@@ -881,7 +881,7 @@ export default function App() {
             opening:'"Em thấy anh/chị đang tìm điều gì đó sâu hơn..."'}
         }));
         setGeneratingProfile(false);
-        showToast('✨','Personal Profile đã tạo!','Xem tab Personal Profile');
+        showToast('✨','Hồ sơ AI đã tạo!','Xem tab Hồ sơ AI');
       }, 800);
       return;
     }
@@ -896,23 +896,23 @@ export default function App() {
           setProfileDirty(false); // banner tắt vì profile vừa refresh.
           showToast(
             force ? '↻' : '✨',
-            force ? 'Đã cập nhật Profile!' : 'Personal Profile đã tạo!',
-            'Xem tab Personal Profile',
+            force ? 'Đã cập nhật Profile!' : 'Hồ sơ AI đã tạo!',
+            'Xem tab Hồ sơ AI',
           );
         },
         onError: (err) => {
           setGeneratingProfile(false);
           const e = err as { code?: string; message?: string };
           if (e.code === 'MISSING_BIRTH_DATE') {
-            alert('Cần có ngày sinh để tạo Personal Profile. Điền ngày sinh trong tab Hồ Sơ trước.');
+            alert('Cần có ngày sinh để tạo Hồ sơ AI. Điền ngày sinh trong tab Hồ Sơ trước.');
           } else if (e.code === 'AI_PROFILE_CONSENT_REQUIRED') {
-            alert('Lead chưa đồng ý cho phép tạo Personal Profile — bật toggle Consent trong tab Hồ Sơ.');
+            alert('Lead chưa đồng ý cho phép tạo Hồ sơ AI — bật toggle Đồng ý trong tab Hồ Sơ.');
           } else if (e.code === 'MISSING_GENDER') {
-            alert('Cần chọn giới tính (Nam/Nữ) trước khi tạo Personal Profile — chọn trong tab Hồ Sơ.');
+            alert('Cần chọn giới tính (Nam/Nữ) trước khi tạo Hồ sơ AI — chọn trong tab Hồ Sơ.');
           } else if (e.code === 'VAULT_FACET_NOT_SUPPORTED') {
             alert('Backend vault chưa hỗ trợ facet này. Liên hệ dev.');
           } else {
-            alert('Tạo profile thất bại: ' + (e.message ?? 'Unknown error'));
+            alert('Tạo profile thất bại: ' + (e.message ?? 'Lỗi không xác định'));
           }
         },
       },
@@ -946,7 +946,7 @@ export default function App() {
         },
         onError: (err) => {
           updateTodo(tid, old => ({ ...old, notes: old.notes.filter(n => n.id !== tempId) }));
-          alert('Lưu ghi chú thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+          alert('Lưu ghi chú thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
         },
       },
     );
@@ -976,7 +976,7 @@ export default function App() {
       { leadId: uuid, noteId: noteUuid, content: trimmed },
       {
         onError: (err) => {
-          alert('Sửa ghi chú thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+          alert('Sửa ghi chú thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
         },
       },
     );
@@ -992,7 +992,7 @@ export default function App() {
       { leadId: uuid, noteId: noteUuid },
       {
         onError: (err) => {
-          alert('Xóa ghi chú thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+          alert('Xóa ghi chú thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
         },
       },
     );
@@ -1021,7 +1021,7 @@ export default function App() {
       {
         onError: (err) => {
           updateTodo(tid, old => ({ ...old, courses: prevCourses }));
-          alert('Lưu khóa thất bại: ' + (err instanceof Error ? err.message : 'Unknown error'));
+          alert('Lưu khóa thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
         },
       },
     );
@@ -1068,7 +1068,7 @@ export default function App() {
   // Sync profile API vào profileCards khi data về (by numeric id).
   // - profileApi object → populate/overwrite card từ backend
   // - profileApi null (backend nói "chưa có profile") → clear card để UI
-  //   show "Tạo Personal Profile" state, không để leftover stale data.
+  //   show "Tạo Hồ sơ AI" state, không để leftover stale data.
   useEffect(() => {
     if (!activeTodoRaw) return;
     if (profileApi === undefined) return; // chưa fetch xong
@@ -1178,7 +1178,7 @@ export default function App() {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', gap: 8 }}>
         <div style={{ color: 'var(--red)', fontSize: 14, fontWeight: 700 }}>Không tải được danh sách lead</div>
-        <div style={{ color: 'var(--t3)', fontSize: 12 }}>{leadsError instanceof Error ? leadsError.message : 'Unknown error'}</div>
+        <div style={{ color: 'var(--t3)', fontSize: 12 }}>{leadsError instanceof Error ? leadsError.message : 'Lỗi không xác định'}</div>
       </div>
     );
   }
@@ -1192,14 +1192,14 @@ export default function App() {
           {FUNNEL_LAYERS.map(l => (
             <div key={l.id} className={`fm-step${currentLayer?.id===l.id?' active':''}`}
               style={currentLayer?.id===l.id?{background:l.color}:{}}>
-              {l.id.toUpperCase()}
+              {l.short}
             </div>
           ))}
         </div>
         <div style={{width:8}}/>
         <div className="tb-greeting">Chào sáng, <em>{userFirstName}</em> ☀️</div>
         <div style={{width:8}}/>
-        <button className="btn btn-ghost btn-sm" onClick={()=>setShowKPI(true)}>📊 Team KPI</button>
+        <button className="btn btn-ghost btn-sm" onClick={()=>setShowKPI(true)}>📊 KPI Đội</button>
         <div style={{width:6}}/>
         <div ref={userMenuRef} style={{position:'relative'}}>
           <div
@@ -1222,7 +1222,7 @@ export default function App() {
               }}
             >
               <div style={{padding:'8px 10px',borderBottom:'1px solid var(--stone2,#e5e7eb)',marginBottom:4}}>
-                <div style={{fontSize:12,fontWeight:700,color:'var(--t1,#111)'}}>{user?.full_name ?? 'User'}</div>
+                <div style={{fontSize:12,fontWeight:700,color:'var(--t1,#111)'}}>{user?.full_name ?? 'Người dùng'}</div>
                 <div style={{fontSize:11,color:'var(--t3,#6b7280)'}}>{user?.email ?? ''}</div>
                 {user?.primary_role && (
                   <div style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--t3,#6b7280)',marginTop:2,textTransform:'uppercase'}}>
@@ -1301,12 +1301,12 @@ export default function App() {
                   className="sn-back"
                   disabled={!canGoBack(activeTodo.stage)}
                   onClick={openBackPopover}
-                  title={activeTodo.stage===5 ? 'Enrolled không thể lùi stage' : undefined}
+                  title={activeTodo.stage===5 ? 'Đã chốt — không thể lùi giai đoạn' : undefined}
                 >
                   {activeTodo.stage<=1
                     ? '← Đầu funnel'
                     : activeTodo.stage===5
-                    ? '🔒 Enrolled — khoá lùi'
+                    ? '🔒 Đã chốt — khoá lùi'
                     : `← ${S_NAMES[activeTodo.stage-2]}`}
                 </button>
                 <div className="sn-stages">
@@ -1324,7 +1324,7 @@ export default function App() {
                 {activeTodo.stage>=6 ? (
                   <button className="sn-next" disabled>Cuối funnel ✓</button>
                 ) : activeTodo.stage===4 ? (
-                  <button className="sn-next enroll-stage" onClick={doNext}>✅ Mark Enrolled</button>
+                  <button className="sn-next enroll-stage" onClick={doNext}>✅ Đánh dấu đã chốt</button>
                 ) : (
                   <button className={`sn-next${activeTodo.stage===3?' close-stage':''}`} onClick={doNext}>
                     {NEXT_LABELS[activeTodo.stage]}
@@ -1418,11 +1418,11 @@ export default function App() {
           <div className="enroll-ov" onClick={e=>{if(e.target===e.currentTarget)setShowEnroll(false)}}>
             <div className="enroll-m">
               <div className="em-icon">🎉</div>
-              <div className="em-title">Xác nhận Enrolled!</div>
+              <div className="em-title">Xác nhận đã chốt!</div>
               <div className="em-sub">Đánh dấu lead đã thanh toán để consultant và hệ thống theo dõi.</div>
               {missingEmail && (
                 <div style={{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.35)',color:'var(--red,#dc2626)',padding:'10px 12px',borderRadius:8,fontSize:13,marginBottom:12}}>
-                  ⚠️ Lead chưa có email — cập nhật email trước khi Enrolled.
+                  ⚠️ Lead chưa có email — cập nhật email trước khi đánh dấu đã chốt.
                 </div>
               )}
               <div className="em-info">
@@ -1491,9 +1491,12 @@ export default function App() {
                       : true)
                     .map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
-                <div className="xm-label">Lý do chuyển</div>
+                <div className="xm-label">Lý do chuyển <span style={{color:'#EF4444'}}>*</span></div>
                 <textarea className="xm-textarea" value={xferReason} onChange={e=>setXferReason(e.target.value)}
                   placeholder="VD: Lead này cần tư vấn về khóa Executive — em chưa đủ kinh nghiệm xử lý..."/>
+                <div style={{fontSize:11,color:'#F59E0B',marginTop:6,fontStyle:'italic'}}>
+                  ⚠️ Ghi chú giúp người nhận hiểu ngữ cảnh — luôn nên điền rõ lý do.
+                </div>
               </div>
             )}
             {xferTab === 'codeal' && (
@@ -1515,15 +1518,18 @@ export default function App() {
                   <span>+</span>
                   <div style={{textAlign:'center',flex:1}}>
                     <div style={{fontSize:10,color:'var(--t3)',fontFamily:'var(--mono)',marginBottom:4}}>
-                      {codealPerson ? apiTeammates.find(m=>m.id===codealPerson)?.name?.split(' ').slice(-1)[0]||'Co-dealer' : 'Co-dealer'}
+                      {codealPerson ? apiTeammates.find(m=>m.id===codealPerson)?.name?.split(' ').slice(-1)[0]||'Đồng sự' : 'Đồng sự'}
                     </div>
                     <input type="number" value={100-splitMe} readOnly style={{background:'var(--stone)'}}/>
                   </div>
                   <span>= 100%</span>
                 </div>
-                <div className="xm-label">Ghi chú</div>
+                <div className="xm-label">Ghi chú <span style={{color:'#EF4444'}}>*</span></div>
                 <textarea className="xm-textarea" value={codealNote} onChange={e=>setCodealNote(e.target.value)}
                   placeholder="VD: Em nhờ chị Hương hỗ trợ vì chị có kinh nghiệm với CEO nhiều hơn..."/>
+                <div style={{fontSize:11,color:'#F59E0B',marginTop:6,fontStyle:'italic'}}>
+                  ⚠️ Ghi chú giúp đối tác hiểu vai trò + lý do chia hoa hồng — luôn nên điền rõ.
+                </div>
               </div>
             )}
             <div style={{display:'flex',gap:7}}>
@@ -1544,7 +1550,7 @@ export default function App() {
           <div className="kpi-panel">
             <div className="kpi-hdr">
               <div>
-                <div className="kpi-hdr-title">📊 Team KPI · {monthLabel}</div>
+                <div className="kpi-hdr-title">📊 KPI Đội · {monthLabel}</div>
                 <div className="kpi-hdr-sub">Nedu Sales Team · Adult Learning Program</div>
               </div>
               <button className="kpi-close" onClick={()=>setShowKPI(false)}>✕</button>
@@ -1566,15 +1572,15 @@ export default function App() {
                 </div>
                 <div className="kmb-track"><div className="kmb-fill" style={{width:`${kpiPct}%`}}/></div>
                 <div className="kmb-details">
-                  <span>{totalEnrolled} enrolled / {totalTarget} mục tiêu</span>
+                  <span>{totalEnrolled} đã chốt / {totalTarget} mục tiêu</span>
                   <span>Còn {totalTarget-totalEnrolled} chỗ cần chốt</span>
                 </div>
               </div>
               <div className="kpi-stats-row">
-                <div className="kpi-stat"><div className="ks-n" style={{color:'var(--nedu)'}}>{totalEnrolled}</div><div className="ks-l">Enrolled tháng này</div></div>
+                <div className="kpi-stat"><div className="ks-n" style={{color:'var(--nedu)'}}>{totalEnrolled}</div><div className="ks-l">Đã chốt tháng này</div></div>
                 <div className="kpi-stat"><div className="ks-n" style={{color:'var(--amber)'}}>{(totalRevenue/1000000).toFixed(0)}M</div><div className="ks-l">Doanh thu (₫)</div></div>
-                <div className="kpi-stat"><div className="ks-n" style={{color:'var(--blue)'}}>{totalActiveLeads}</div><div className="ks-l">Leads đang theo</div></div>
-                <div className="kpi-stat"><div className="ks-n" style={{color:'var(--purple)'}}>{Math.round(conversionRate)}%</div><div className="ks-l">Tỷ lệ convert</div></div>
+                <div className="kpi-stat"><div className="ks-n" style={{color:'var(--blue)'}}>{totalActiveLeads}</div><div className="ks-l">Lead đang theo</div></div>
+                <div className="kpi-stat"><div className="ks-n" style={{color:'var(--purple)'}}>{Math.round(conversionRate)}%</div><div className="ks-l">Tỷ lệ chuyển đổi</div></div>
               </div>
               <div style={{fontSize:11,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--t3)',fontFamily:'var(--mono)',marginBottom:10}}>🏆 Bảng xếp hạng</div>
               <div className="kpi-board">
@@ -1590,11 +1596,11 @@ export default function App() {
                         <div className="kb-name">{m.name} {m.isMe&&<span className="kbadge" style={{background:'var(--green-s)',color:'var(--nedu)'}}>Bạn</span>}{isHelp&&!m.isMe&&<span className="kbadge" style={{background:'var(--amber-s)',color:'var(--amber)'}}>Cần hỗ trợ</span>}</div>
                         <div className="kb-role">{m.role}{m.isMe?' (bạn)':''}</div>
                         <div className="kb-bar"><div className="kb-bar-fill" style={{width:`${Math.min(pct2,100)}%`,background:isHelp?'var(--amber)':m.isMe?'var(--nedu)':'#3B82F6'}}/></div>
-                        <div className="kb-bar-lbl"><span>{m.enrolled}/{m.target} enrolled</span><span>{pct2}%</span></div>
+                        <div className="kb-bar-lbl"><span>{m.enrolled}/{m.target} đã chốt</span><span>{pct2}%</span></div>
                       </div>
                       <div className="kb-right">
                         <div className="kb-enrolled">{m.enrolled}</div>
-                        <div className="kb-target-lbl">/{m.target} target</div>
+                        <div className="kb-target-lbl">/{m.target} mục tiêu</div>
                         <div className="kb-rev">{(m.revenue/1000000).toFixed(0)}M ₫</div>
                       </div>
                     </div>
@@ -1606,7 +1612,7 @@ export default function App() {
                   <div style={{fontSize:11,fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--amber)',fontFamily:'var(--mono)',marginBottom:8}}>⚠ Cần hỗ trợ</div>
                   {sortedTeam.filter(m=>Math.round((m.enrolled/m.target)*100)<40).map(m=>(
                     <div key={m.id} style={{fontSize:13,color:'var(--t2)',marginBottom:4}}>
-                      <strong style={{color:'var(--t1)'}}>{m.name}</strong> — {m.enrolled}/{m.target} · còn {m.target-m.enrolled} enrollment để đạt target
+                      <strong style={{color:'var(--t1)'}}>{m.name}</strong> — {m.enrolled}/{m.target} · còn {m.target-m.enrolled} đơn để đạt mục tiêu
                     </div>
                   ))}
                 </div>
@@ -1670,7 +1676,7 @@ function LeadCard({t, activeId, onSelect, onToggleDone}: {
   const bc: Record<string,string> = {red:'var(--red)',amber:'var(--amber)',blue:'var(--blue)',green:'var(--green)'};
   const srcBg = t.sourceType==='marketing' ? 'var(--blue-b)' : 'var(--stone)';
   const srcCl = t.sourceType==='marketing' ? 'var(--blue)' : 'var(--t3)';
-  const srcLbl = t.sourceType==='marketing' ? '📢 Marketing' : '🌐 Inbound';
+  const srcLbl = t.sourceType==='marketing' ? '📢 Quảng cáo' : '🌐 Tự đến';
   // Hot=đỏ, Warm=vàng, Cold=xanh dương (lấy từ metadata.temperature).
   // Undefined: không tô viền (lead chưa được phân loại).
   const tempBorder = t.temperature === 'hot' ? 'var(--red)'
@@ -1678,11 +1684,11 @@ function LeadCard({t, activeId, onSelect, onToggleDone}: {
     : t.temperature === 'cold' ? 'var(--blue)'
     : undefined;
   const tempBadge = t.temperature === 'hot'
-    ? { bg: 'var(--red-s)', fg: 'var(--red)', label: '🔥 Hot lead' }
+    ? { bg: 'var(--red-s)', fg: 'var(--red)', label: '🔥 Lead nóng' }
     : t.temperature === 'warm'
-    ? { bg: 'var(--amber-s)', fg: 'var(--amber)', label: '🌤 Warm lead' }
+    ? { bg: 'var(--amber-s)', fg: 'var(--amber)', label: '🌤 Lead ấm' }
     : t.temperature === 'cold'
-    ? { bg: 'var(--blue-s)', fg: 'var(--blue)', label: '❄ Cold lead' }
+    ? { bg: 'var(--blue-s)', fg: 'var(--blue)', label: '❄ Lead lạnh' }
     : null;
   return (
     <div
@@ -1713,7 +1719,7 @@ function LeadHero({t, onCall, onXfer, onEnroll}: {t:Todo; onCall:(id:number)=>vo
   const srcBg = isMarketing ? 'var(--blue-s)' : 'var(--green-s)';
   const srcBr = isMarketing ? 'var(--blue-b)' : 'var(--green-b)';
   const srcCl = isMarketing ? 'var(--blue)' : 'var(--green)';
-  const srcLbl = isMarketing ? `📢 Marketing · ${t.sourceCh}` : `🌐 Inbound · ${t.sourceCh}`;
+  const srcLbl = isMarketing ? `📢 Quảng cáo · ${t.sourceCh}` : `🌐 Tự đến · ${t.sourceCh}`;
   const initial = t.name.split(' ').pop()?.[0] || t.name[0];
   return (
     <div className="lead-hero">
@@ -1744,7 +1750,7 @@ function LeadHero({t, onCall, onXfer, onEnroll}: {t:Todo; onCall:(id:number)=>vo
         <div className="lh-actions">
           {t.stage<=5 && <button className="btn btn-call btn-sm" onClick={()=>onCall(t.id)}>📞 Gọi & Hồ sơ</button>}
           <button className="btn btn-ghost btn-sm" onClick={()=>onXfer(t.id)} title="Chuyển case hoặc Co-deal">↔ Co-deal</button>
-          {t.stage===4 && <button className="btn btn-primary btn-sm" onClick={()=>onEnroll(t.id)}>✅ Mark Enrolled</button>}
+          {t.stage===4 && <button className="btn btn-primary btn-sm" onClick={()=>onEnroll(t.id)}>✅ Đánh dấu đã chốt</button>}
         </div>
       </div>
     </div>
@@ -1758,7 +1764,7 @@ function FunnelBar({t}: {t:Todo}) {
         const isCur = l.stages.includes(t.stage);
         const isPast = l.id==='attract' || l.id==='convert';
         const tag = l.id==='attract'
-          ? <span style={{fontSize:8,background:'rgba(107,114,128,.1)',padding:'1px 5px',borderRadius:4,color:'var(--t3)'}}>future</span>
+          ? <span style={{fontSize:8,background:'rgba(107,114,128,.1)',padding:'1px 5px',borderRadius:4,color:'var(--t3)'}}>tương lai</span>
           : l.id==='convert'
           ? <span style={{fontSize:8,background:'var(--blue-s)',padding:'1px 5px',borderRadius:4,color:'var(--blue)'}}>nedu.vn</span>
           : null;
@@ -1794,13 +1800,13 @@ function CenterBody({t, guideChecks, profileCards, onToggleGuide, onSendNote, on
   const hasPC = profileCards[t.id]?.gen;
   const aiSumMap: Record<number,string> = {
     6:'Khách cũ 2022 — do dự vì <strong>tài chính và gia đình</strong>. Điểm test tăng 51→68. <strong>Sẵn sàng hơn nhiều</strong>. Hỏi "điều gì đã thay đổi trong 3 năm" trước khi pitch.',
-    4:'2 lần tư vấn — lần 1 nhiệt tình, lần 2 <strong>objection giá</strong>. CEO phân tích ROI. <strong>Chuyển từ emotional pitch → business value.</strong> Dùng Personal Profile.',
+    4:'2 lần tư vấn — lần 1 nhiệt tình, lần 2 <strong>objection giá</strong>. CEO phân tích ROI. <strong>Chuyển từ emotional pitch → business value.</strong> Dùng Hồ sơ AI.',
     5:'<strong>Đã quyết định</strong> — chỉ chờ thời điểm tài chính. Duy trì kết nối nhẹ nhàng.',
     7:'Lead <strong>Marketing mới</strong> — chưa có lịch sử tư vấn. Thu thập thông tin cơ bản trong cuộc gọi đầu.',
   };
   const aiTagsMap: Record<number,string[]> = {
     6:['Khách cũ','Điểm tăng','Sẵn sàng hơn'],
-    4:['Objection giá','Cần góc ROI','Có Personal Profile'],
+    4:['Objection giá','Cần góc ROI','Có Hồ sơ AI'],
     5:['Đã quyết định','Chờ chuyển khoản'],
     7:['Marketing lead','Chưa test','Cuộc gọi đầu'],
   };
@@ -1817,19 +1823,19 @@ function CenterBody({t, guideChecks, profileCards, onToggleGuide, onSendNote, on
       )}
       {t.sourceType==='marketing' && (
         <div style={{background:'var(--blue-s)',border:'1.5px solid var(--blue-b)',borderRadius:'var(--rads)',padding:'11px 13px',marginBottom:12}}>
-          <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:'var(--blue)',fontFamily:'var(--mono)',letterSpacing:'.1em',marginBottom:5}}>📢 Lead từ Marketing Team</div>
+          <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:'var(--blue)',fontFamily:'var(--mono)',letterSpacing:'.1em',marginBottom:5}}>📢 Lead từ Đội Marketing</div>
           <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.6}}>Lead này được Marketing team tạo từ <strong>{t.sourceCh}</strong>. Họ <strong>chưa qua bài test nedu.vn</strong> — cần thu thập thêm thông tin cơ bản trong cuộc gọi đầu tiên.</div>
         </div>
       )}
       {hasPC ? (
         <div className="profile-hint">
-          <div className="ph-label" style={{color:'var(--purple)'}}>✨ Personal Profile sẵn sàng — xem trong "Gọi & Hồ sơ"</div>
+          <div className="ph-label" style={{color:'var(--purple)'}}>✨ Hồ sơ AI sẵn sàng — xem trong "Gọi & Hồ sơ"</div>
           <div className="ph-text" dangerouslySetInnerHTML={{__html:buildHintTxt(t)}}/>
         </div>
       ) : pc < 60 ? (
         <div className="profile-hint">
           <div className="ph-label">🧩 Hồ sơ {pc}%</div>
-          <div className="ph-text">Điền thêm khi gọi → nhấn <strong>✨ Tạo Personal Profile</strong> để AI tổng hợp cách tư vấn.</div>
+          <div className="ph-text">Điền thêm khi gọi → nhấn <strong>✨ Tạo Hồ sơ AI</strong> để AI tổng hợp cách tư vấn.</div>
         </div>
       ) : null}
       {guide && (
@@ -1892,7 +1898,7 @@ function TimelineList({items}: {items: TLItem[]}) {
             <div className="tl-main">
               <div className="tl-top">
                 <div className="tl-action">{tl.action}</div>
-                {tl.who && tl.who!=='System' && <div className="tl-who">✍ {tl.who}</div>}
+                {tl.who && tl.who!=='Hệ thống' && <div className="tl-who">✍ {tl.who}</div>}
               </div>
               <div className="tl-date">{tl.date}</div>
               {tl.note && <div className="tl-note">{tl.note}</div>}
@@ -2038,7 +2044,7 @@ function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, ed
         </div>
         <div className="cs-tabs">
           <div className={`cs-tab${tab==='info'?' on':''}`} onClick={()=>onTabChange('info')}>📋 Hồ Sơ</div>
-          <div className={`cs-tab ptab${tab==='profile'?' on':''}`} onClick={()=>onTabChange('profile')}>✨ Personal Profile</div>
+          <div className={`cs-tab ptab${tab==='profile'?' on':''}`} onClick={()=>onTabChange('profile')}>✨ Hồ sơ AI</div>
         </div>
         <div className="cs-prog">
           <div className="csp-lbl">Hồ sơ</div>
@@ -2083,8 +2089,8 @@ function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, ed
               </div>
               {profileDirty && profileCards[t.id]?.gen && (
                 <div className="profile-dirty">
-                  <div className="pd-text">✏️ <strong>Hồ sơ đã thay đổi</strong> — cập nhật Personal Profile để tư vấn chính xác hơn</div>
-                  <button className="btn btn-sm" style={{background:'var(--amber)',color:'#fff',flexShrink:0}} onClick={()=>onRegenProfile(t.id)}>↻ Cập nhật Profile</button>
+                  <div className="pd-text">✏️ <strong>Hồ sơ đã thay đổi</strong> — cập nhật Hồ sơ AI để tư vấn chính xác hơn</div>
+                  <button className="btn btn-sm" style={{background:'var(--amber)',color:'#fff',flexShrink:0}} onClick={()=>onRegenProfile(t.id)}>↻ Cập nhật Hồ sơ AI</button>
                 </div>
               )}
               <div className="ps-sec">
@@ -2142,7 +2148,7 @@ function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, ed
                 <div className={`pf-item${t.aiProfileConsent?' filled':''}`}>
                   <div className="pf-icon">🛡️</div>
                   <div className="pf-content">
-                    <div className="pf-lbl">Consent tạo Personal Profile <span style={{color:'var(--red)',fontSize:9,fontFamily:'var(--mono)',marginLeft:3}}>bắt buộc</span></div>
+                    <div className="pf-lbl">Đồng ý tạo Hồ sơ AI <span style={{color:'var(--red)',fontSize:9,fontFamily:'var(--mono)',marginLeft:3}}>bắt buộc</span></div>
                     <div style={{fontSize:11,color:'var(--t2)',lineHeight:1.5,marginTop:3}}>
                       Prospect đã đồng ý để mình dùng dữ liệu ngày/giờ sinh để tạo profile AI.
                     </div>
@@ -2192,7 +2198,7 @@ function CallScreen({t, tab, onTabChange, onClose, onSaveClose, profileCards, ed
         )}
 
         <div className="cs-foot">
-          <div className="cf-tip">💡 Điền ngày sinh + giờ sinh → <strong>Tạo Personal Profile tự động</strong></div>
+          <div className="cf-tip">💡 Điền ngày sinh + giờ sinh → <strong>Tạo Hồ sơ AI tự động</strong></div>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Đóng</button>
           <button className="btn btn-primary btn-sm" onClick={onSaveClose}>💾 Lưu & Đóng</button>
         </div>
@@ -2214,7 +2220,7 @@ function ProfileCardView({t, profileCards, generatingProfile, onGenProfile, onSw
   const missing: string[] = [];
   if (!hasDOB) missing.push('Ngày sinh');
   if (!hasGender) missing.push('Giới tính');
-  if (!hasConsent) missing.push('Consent');
+  if (!hasConsent) missing.push('Đồng ý');
 
   if (generatingProfile) {
     return (
@@ -2234,9 +2240,9 @@ function ProfileCardView({t, profileCards, generatingProfile, onGenProfile, onSw
           <div style={{fontSize:15,fontWeight:800,marginBottom:7}}>Sẵn sàng tạo Profile</div>
           <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.6,maxWidth:240,margin:'0 auto 16px'}}>5 hệ thống (BaZi, Tử Vi, Nine Star Ki, Numerology, Western Astrology) → briefing sales cá nhân hóa</div>
           <div style={{fontSize:10,fontFamily:'var(--mono)',background:'var(--stone)',padding:'6px 12px',borderRadius:7,color:'var(--t2)',marginBottom:16,display:'inline-block'}}>
-            ✅ {t.profile?.dob} {t.profile?.birthTime?'· '+t.profile.birthTime:''} · {t.profile?.gender==='male'?'♂ Nam':'♀ Nữ'} · 🛡️ Consent
+            ✅ {t.profile?.dob} {t.profile?.birthTime?'· '+t.profile.birthTime:''} · {t.profile?.gender==='male'?'♂ Nam':'♀ Nữ'} · 🛡️ Đồng ý
           </div><br/>
-          <button className="btn btn-ghost" style={{borderColor:'var(--purple-b)',color:'var(--purple)'}} onClick={()=>onGenProfile(t.id)}>✨ Tạo Personal Profile</button>
+          <button className="btn btn-ghost" style={{borderColor:'var(--purple-b)',color:'var(--purple)'}} onClick={()=>onGenProfile(t.id)}>✨ Tạo Hồ sơ AI</button>
         </div>
       );
     }
@@ -2254,7 +2260,7 @@ function ProfileCardView({t, profileCards, generatingProfile, onGenProfile, onSw
   return (
     <>
       <div className="pcard-hero">
-        <div className="pch-ey">NhiLe · Personal Profile · AI</div>
+        <div className="pch-ey">NhiLe · Hồ sơ AI · AI</div>
         <div className="pch-name">{t.name}</div>
         <div className="pch-sub">{t.profile?.dob||''} {t.profile?.birthTime?'· '+t.profile.birthTime:''}</div>
         <div className="pch-quote">{pc.q}</div>

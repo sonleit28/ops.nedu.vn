@@ -19,7 +19,7 @@ export const MOCK_PERSONS: MockPerson[] = [
   },
   {
     id: 'c3d4e5f6-a7b8-4012-9def-345678901234',
-    email: 'consultant-01@nedu-ops.vn', full_name: 'Consultant 01',
+    email: 'linh.nguyen@nedu-ops.vn', full_name: 'Linh Nguyễn',
     roles: ['consultant'] as Role[], primary_role: 'consultant' as Role,
   },
   {
