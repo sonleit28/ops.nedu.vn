@@ -1,0 +1,21 @@
+# Cloudflare Workers Static Assets headers (BH-7 Bearer Hardening 2026-05-11)
+#
+# Defense-in-depth chống XSS injection + clickjacking + MIME sniffing.
+# Mirror auth-central helmet config (BH-2) cho consistency across NLH.
+#
+# CSP strict (api-only consumer KHÔNG load 3rd-party scripts):
+#   - script-src 'self' — block inline scripts + 3rd-party (defeats XSS)
+#   - style-src 'unsafe-inline' — Tailwind + React style={} cần (accept marginal CSS risk)
+#   - connect-src whitelist — chỉ auth.nhi.sg + api.nedu.vn
+#   - frame-ancestors 'none' — anti-clickjacking
+#
+# Phase 2 nâng cấp: nonce-based CSP cho strict 'unsafe-inline'-free.
+
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  X-DNS-Prefetch-Control: off
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://auth.nhi.sg https://api.nedu.vn; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
