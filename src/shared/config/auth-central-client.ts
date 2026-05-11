@@ -1,5 +1,9 @@
 import { env } from './env'
 import { tokenStorage, type TokenPair } from './token-storage'
+import {
+  cancelProactiveRefresh,
+  scheduleProactiveRefresh,
+} from './proactive-refresh'
 
 export interface LoginResponse extends TokenPair {
   token_type: 'Bearer'
@@ -67,6 +71,7 @@ export async function loginWithPassword(email: string, password: string): Promis
     body: JSON.stringify({ email, password }),
   })
   tokenStorage.set({ access_token: res.access_token, refresh_token: res.refresh_token })
+  scheduleProactiveRefresh()
   return res
 }
 
@@ -87,9 +92,15 @@ export function refreshTokens(): Promise<string | null> {
         body: JSON.stringify({ refresh_token }),
       })
       tokenStorage.set({ access_token: res.access_token, refresh_token: res.refresh_token })
+      // Reschedule dựa trên token mới (TTL reset). Không gọi nếu đây là
+      // refresh từ proactive timer fire — proactive-refresh.ts sẽ tự
+      // re-schedule khi callback resolve. Tuy nhiên gọi 2 lần vẫn idempotent
+      // (cancel cũ + schedule mới cùng giá trị).
+      scheduleProactiveRefresh()
       return res.access_token
     } catch {
       tokenStorage.clear()
+      cancelProactiveRefresh()
       return null
     } finally {
       refreshInflight = null
@@ -110,6 +121,7 @@ export async function logout(): Promise<void> {
     /* ignore — we clear locally either way */
   }
   tokenStorage.clear()
+  cancelProactiveRefresh()
 }
 
 export interface AuthCentralMe {

@@ -5,6 +5,7 @@ import {
   redirectToGoogleLogin,
   logout as authCentralLogout,
 } from '@shared/config/auth-central-client'
+import { scheduleProactiveRefresh } from '@shared/config/proactive-refresh'
 import type { AuthUser } from '@shared/types/auth'
 import { analytics } from '@shared/analytics'
 import { env } from '@shared/config/env'
@@ -98,6 +99,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     acceptTokens: async (tokens) => {
       tokenStorage.set(tokens)
+      // Proactive refresh: schedule rotation 60s trước access expire
+      // (vd TTL 15m → fire ~14m sau accept). Replace reactive-only flow.
+      scheduleProactiveRefresh()
       const user = await fetchMe()
       set({ user })
       syncAnalytics(user)
