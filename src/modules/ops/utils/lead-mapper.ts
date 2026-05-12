@@ -68,6 +68,6 @@ export function leadToTodo(lead: BackendLead): Todo {
     done: lead.stage === 'enrolled' || lead.stage === 'retention',
     temperature: lead.metadata?.temperature,
     aiProfileConsent: lead.ai_profile_consent,
-    assignedTo: lead.assigned_to_full_name,
+    assignedTo: lead.assigned_to_full_name ?? undefined,
   }
 }

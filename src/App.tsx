@@ -779,8 +779,9 @@ export default function App() {
   const apiTeammates = useMemo(() => {
     const seen = new Map<string, { id: string; name: string }>();
     (leads ?? []).forEach(l => {
+      if (!l.assigned_to_user_id) return; // skip lead chưa phân công (BE allow null assignee)
       if (!seen.has(l.assigned_to_user_id)) {
-        seen.set(l.assigned_to_user_id, { id: l.assigned_to_user_id, name: l.assigned_to_full_name });
+        seen.set(l.assigned_to_user_id, { id: l.assigned_to_user_id, name: l.assigned_to_full_name ?? 'Chưa phân công' });
       }
     });
     return Array.from(seen.values());

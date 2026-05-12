@@ -29,8 +29,10 @@ export interface Lead {
   stage: PipelineStage
   source: LeadSource
   source_channel?: string | null
-  assigned_to_user_id: string
-  assigned_to_full_name: string
+  // Nullable kể từ BE fe7b9d5 + 5d92d0b: hieucon B2C + quiz ingest tạo lead
+  // chưa phân công, leader/admin assign sau từ ops portal.
+  assigned_to_user_id: string | null
+  assigned_to_full_name: string | null
   birth_date?: string
   birth_time?: string
   occupation?: string

@@ -109,14 +109,23 @@ export function refreshTokens(): Promise<string | null> {
   return refreshInflight
 }
 
-/** Revoke refresh token on auth-central, then clear local storage. */
+/**
+ * Revoke refresh token on auth-central, then clear local storage.
+ * BH-8: /auth/logout requires Bearer access token. Without it, server returns
+ * 401 and the refresh family stays alive on the server (replay-attack risk).
+ */
 export async function logout(): Promise<void> {
+  const access = tokenStorage.getAccess()
   const refresh_token = tokenStorage.getRefresh()
   try {
-    await call<{ success: boolean }>('/auth/logout', {
-      method: 'POST',
-      body: JSON.stringify(refresh_token ? { refresh_token } : {}),
-    })
+    await call<{ revoked_count: number; scope: 'family' | 'all_devices' | 'access_only' }>(
+      '/auth/logout',
+      {
+        method: 'POST',
+        headers: access ? { Authorization: `Bearer ${access}` } : {},
+        body: JSON.stringify(refresh_token ? { refresh_token } : {}),
+      },
+    )
   } catch {
     /* ignore — we clear locally either way */
   }
